@@ -2,6 +2,10 @@
 /***************             Global RX related variables           ********************/
 /**************************************************************************************/
 
+#if defined(SPEKTRUM)
+  #include <wiring.c>  //Auto-included by the Arduino core... but we need it sooner. 
+#endif
+
 //RAW RC values will be store here
 #if defined(SBUS)
   volatile uint16_t rcValue[18] = {1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502, 1502}; // interval [1000;2000]
@@ -15,13 +19,11 @@
   // for 16 + 2 Channels SBUS. The 10 extra channels 8->17 are not used by MultiWii, but it should be easy to integrate them.
   static uint8_t rcChannel[18] = {PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3,AUX4,8,9,10,11,12,13,14,15,16,17};
   static uint16_t sbusIndex=0;
+#elif defined(SPEKTRUM)
+  static uint8_t rcChannel[7] = {PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3};
 #else // Standard Channel order
   static uint8_t rcChannel[8]  = {ROLLPIN, PITCHPIN, YAWPIN, THROTTLEPIN, AUX1PIN,AUX2PIN,AUX3PIN,AUX4PIN};
   static uint8_t PCInt_RX_Pins[PCINT_PIN_COUNT] = {PCINT_RX_BITS}; // if this slowes the PCINT readings we can switch to a define for each pcint bit
-#endif
-#if defined(SPEKTRUM) // Spektrum Satellite Frame size
-  //Note: Defines are moved to def.h 
-  volatile uint8_t spekFrame[SPEK_FRAME_SIZE];
 #endif
 
 
@@ -82,7 +84,7 @@ void configureReceiver() {
   #endif
   // Init Sektrum Satellite RX
   #if defined (SPEKTRUM)
-    SerialOpen(1,115200);
+    SerialOpen(SPEK_SERIAL_PORT,115200);
   #endif
   // Init SBUS RX
   #if defined(SBUS)
@@ -143,7 +145,7 @@ void configureReceiver() {
     #endif
     
     #if defined(FAILSAFE) && !defined(PROMICRO)
-      if (mask & 1<<FAILSAFE_PIN) {  // If pulse present on FAILSAFE_PIN (independent from ardu version), clear FailSafe counter  - added by MIS
+      if (mask & 1<<FAILSAFE_PIN && dTime>980) {  // If pulse present on FAILSAFE_PIN  and pulse time > 980us, clear FailSafe counter  - added by MIS
         if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0; }
     #endif
   }
@@ -187,7 +189,9 @@ void configureReceiver() {
         if(900<diff && diff<2200){
           rcValue[3] = diff;
           #if defined(FAILSAFE)
+           if(diff>980) {        // if Throttle value is higher than 980us
             if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0;   // If pulse present on THROTTLE pin (independent from ardu version), clear FailSafe counter  - added by MIS
+           }
           #endif 
         }
       }else last = now; 
@@ -216,6 +220,11 @@ void configureReceiver() {
   ISR(INT6_vect){rxInt();}
 #endif
 
+// PPM_SUM at THROTTLE PIN on MEGA boards
+#if defined(PPM_ON_THROTTLE) && defined(MEGA) && defined(SERIAL_SUM_PPM)
+  ISR(PCINT2_vect) { if(PINK & (1<<0)) rxInt(); }
+#endif
+
 // Read PPM SUM RX Data
 #if defined(SERIAL_SUM_PPM)
   void rxInt() {
@@ -231,36 +240,14 @@ void configureReceiver() {
       if(900<diff && diff<2200 && chan<8 ) {   //Only if the signal is between these values it is valid, otherwise the failsafe counter should move up
         rcValue[chan] = diff;
         #if defined(FAILSAFE)
-          if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0;   // clear FailSafe counter - added by MIS  //incompatible to quadroppm
+          if(chan==2 && diff>980) {        // if Throttle value is higher than 980us
+            if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0;   // clear FailSafe counter - added by MIS  //incompatible to quadroppm
+          }
         #endif
       }
     chan++;
   }
 }
-#endif
-
-/**************************************************************************************/
-/***************            Spektrum Satellite RX Data             ********************/
-/**************************************************************************************/
-#if defined(SPEKTRUM)
-  ISR(SPEK_SERIAL_VECT) {
-    uint32_t spekTime;
-    static uint32_t spekTimeLast, spekTimeInterval;
-    static uint8_t  spekFramePosition;
-    spekTime=micros();
-    spekTimeInterval = spekTime - spekTimeLast;
-    spekTimeLast = spekTime;
-    if (spekTimeInterval > 5000) spekFramePosition = 0;
-    spekFrame[spekFramePosition] = SPEK_DATA_REG;
-    if (spekFramePosition == SPEK_FRAME_SIZE - 1) {
-      rcFrameComplete = 1;
-      #if defined(FAILSAFE)
-        if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0;   // clear FailSafe counter
-      #endif
-    } else {
-      spekFramePosition++;
-    }
-  }
 #endif
 
 /**************************************************************************************/
@@ -312,34 +299,58 @@ void  readSBus(){
 /**************************************************************************************/
 /***************          combine and sort the RX Datas            ********************/
 /**************************************************************************************/
+#if defined(SPEKTRUM)
+volatile uint8_t  spekFrameFlags;
+volatile uint32_t spekTimeLast;
+void readSpektrum() {
+  if ((!f.ARMED) && 
+     #if defined(FAILSAFE) || (SPEK_SERIAL_PORT != 0) 
+        (failsafeCnt > 5) &&
+     #endif
+      ( SerialPeek(SPEK_SERIAL_PORT) == '$')) {
+    while (SerialAvailable(SPEK_SERIAL_PORT)) {
+      serialCom();
+      delay (10);
+    }
+    return;
+  } //End of: Is it the GUI?
+  while (SerialAvailable(SPEK_SERIAL_PORT) > SPEK_FRAME_SIZE) { // More than a frame?  More bytes implies we weren't called for multiple frame times.  We do not want to process 'old' frames in the buffer.
+    for (uint8_t i = 0; i < SPEK_FRAME_SIZE; i++) {SerialRead(SPEK_SERIAL_PORT);}  //Toss one full frame of bytes.
+  }  
+  if (spekFrameFlags == 0x01) {   //The interrupt handler saw at least one valid frame start since we were last here. 
+    if (SerialAvailable(SPEK_SERIAL_PORT) == SPEK_FRAME_SIZE) {  //A complete frame? If not, we'll catch it next time we are called. 
+      SerialRead(SPEK_SERIAL_PORT); SerialRead(SPEK_SERIAL_PORT);        //Eat the header bytes 
+      for (uint8_t b = 2; b < SPEK_FRAME_SIZE; b += 2) {
+        uint8_t bh = SerialRead(SPEK_SERIAL_PORT);
+        uint8_t bl = SerialRead(SPEK_SERIAL_PORT);
+        uint8_t spekChannel = 0x0F & (bh >> SPEK_CHAN_SHIFT);
+        if (spekChannel < SPEK_MAX_CHANNEL) rcValue[spekChannel] = 988 + (((uint16_t)(bh & SPEK_CHAN_MASK) << 8) + bl) SPEK_DATA_SHIFT;
+      }
+      spekFrameFlags = 0x00;
+      #if defined(FAILSAFE)
+        if(failsafeCnt > 20) failsafeCnt -= 20; else failsafeCnt = 0;   // Valid frame, clear FailSafe counter
+      #endif
+    } else { //Start flag is on, but not enough bytes means there is an incomplete frame in buffer.  This could be OK, if we happened to be called in the middle of a frame.  Or not, if it has been a while since the start flag was set.
+      uint32_t spekInterval = (timer0_overflow_count << 8) * (64 / clockCyclesPerMicrosecond()) - spekTimeLast;
+      if (spekInterval > 2500) {spekFrameFlags = 0;}  //If it has been a while, make the interrupt handler start over. 
+    }
+  }
+}
+#endif
+
+
 uint16_t readRawRC(uint8_t chan) {
   uint16_t data;
-  uint8_t oldSREG;
-  oldSREG = SREG; cli(); // Let's disable interrupts
-  data = rcValue[rcChannel[chan]]; // Let's copy the data Atomically
   #if defined(SPEKTRUM)
-    static uint32_t spekChannelData[SPEK_MAX_CHANNEL];
-    if (rcFrameComplete) {
-      for (uint8_t b = 3; b < SPEK_FRAME_SIZE; b += 2) {
-        uint8_t spekChannel = 0x0F & (spekFrame[b - 1] >> SPEK_CHAN_SHIFT);
-        if (spekChannel < SPEK_MAX_CHANNEL) spekChannelData[spekChannel] = ((uint32_t)(spekFrame[b - 1] & SPEK_CHAN_MASK) << 8) + spekFrame[b];
-      }
-      rcFrameComplete = 0;
-    }
-  #endif
-  SREG = oldSREG; sei();// Let's enable the interrupts
-  #if defined(SPEKTRUM)
-    static uint8_t spekRcChannelMap[SPEK_MAX_CHANNEL] = {1,2,3,0,4,5,6};
-    if (chan >= SPEK_MAX_CHANNEL) {
-      data = 1500;
-    } else {
-      #if (SPEKTRUM == 1024)
-        data = 988 + spekChannelData[spekRcChannelMap[chan]];          // 1024 mode
-      #endif
-      #if (SPEKTRUM == 2048)
-        data = 988 + (spekChannelData[spekRcChannelMap[chan]] >> 1);   // 2048 mode
-      #endif
-    }
+    readSpektrum();
+    if (chan < SPEK_MAX_CHANNEL) {
+      data = rcValue[rcChannel[chan]];
+    } else data = 1500;
+  #else
+    uint8_t oldSREG;
+    oldSREG = SREG; cli(); // Let's disable interrupts
+    data = rcValue[rcChannel[chan]]; // Let's copy the data Atomically
+    SREG = oldSREG; sei(); // Let's enable the interrupts
   #endif
   return data; // We return the value correctly copied when the IRQ's where disabled
 }

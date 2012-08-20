@@ -126,11 +126,21 @@ void serialCom() {
     HEADER_CMD,
   } c_state = IDLE;
   
+#if defined(MEGA) && defined(OSD_ON_UART3)
+  static uint8_t port;
+  while (SerialAvailable(0) || SerialAvailable(3)) {
+    uint8_t bytesTXBuff = ((uint8_t)(headTX-tailTX))%TX_BUFFER_SIZE; // indicates the number of occupied bytes in TX buffer
+    if (bytesTXBuff > TX_BUFFER_SIZE - 50 ) return; // ensure there is enough free TX buffer to go further (40 bytes margin)
+
+    if (c_state == IDLE) port = 0;
+    if (SerialAvailable(0) && port != 2) {port = 1; c = SerialRead(0);}
+    if (SerialAvailable(3) && port != 1) {port = 2; c = SerialRead(3);}
+#else
   while (SerialAvailable(0)) {
     uint8_t bytesTXBuff = ((uint8_t)(headTX-tailTX))%TX_BUFFER_SIZE; // indicates the number of occupied bytes in TX buffer
-    if (bytesTXBuff > TX_BUFFER_SIZE - 40 ) return; // ensure there is enough free TX buffer to go further (40 bytes margin)
+    if (bytesTXBuff > TX_BUFFER_SIZE - 50 ) return; // ensure there is enough free TX buffer to go further (40 bytes margin)
     c = SerialRead(0);
-
+#endif
     if (c_state == IDLE) {
       c_state = (c=='$') ? HEADER_START : IDLE;
       if (c_state == IDLE) evaluateOtherData(c); // evaluate all other incoming serial data
@@ -174,7 +184,7 @@ void evaluateCommand() {
      }
      headSerialReply(0);
      break;
-#if GPS
+   #if GPS
    case MSP_SET_RAW_GPS:
      f.GPS_FIX = read8();
      GPS_numSat = read8();
@@ -185,7 +195,7 @@ void evaluateCommand() {
      GPS_update |= 2;              // New data signalisation to GPS functions
      headSerialReply(0);
      break;
-#endif
+   #endif
    case MSP_SET_PID:
      for(uint8_t i=0;i<PIDITEMS;i++) {
        conf.P8[i]=read8();
@@ -228,10 +238,43 @@ void evaluateCommand() {
      serialize16(cycleTime);
      serialize16(i2c_errors_count);
      serialize16(ACC|BARO<<1|MAG<<2|GPS<<3|SONAR<<4);
-     serialize32(f.ACC_MODE<<BOXACC|f.BARO_MODE<<BOXBARO|f.MAG_MODE<<BOXMAG|f.ARMED<<BOXARM|
-                 rcOptions[BOXCAMSTAB]<<BOXCAMSTAB | rcOptions[BOXCAMTRIG]<<BOXCAMTRIG |
-                 f.GPS_HOME_MODE<<BOXGPSHOME|f.GPS_HOLD_MODE<<BOXGPSHOLD|f.HEADFREE_MODE<<BOXHEADFREE|
-                 f.PASSTHRU_MODE<<BOXPASSTHRU|rcOptions[BOXBEEPERON]<<BOXBEEPERON|rcOptions[BOXLEDMAX]<<BOXLEDMAX|rcOptions[BOXLLIGHTS]<<BOXLLIGHTS|rcOptions[BOXHEADADJ]<<BOXHEADADJ);
+     serialize32(
+                 #if ACC
+                   f.ANGLE_MODE<<BOXANGLE|
+                   f.HORIZON_MODE<<BOXHORIZON|
+                 #endif
+                 #if BARO
+                   f.BARO_MODE<<BOXBARO|
+                 #endif
+                 #if MAG
+                   f.MAG_MODE<<BOXMAG|
+                 #endif
+                 f.ARMED<<BOXARM|
+                 #if defined(SERVO_TILT) || defined(GIMBAL)
+                   rcOptions[BOXCAMSTAB]<<BOXCAMSTAB|
+                 #endif
+                 #if defined(CAMTRIG)
+                   rcOptions[BOXCAMTRIG]<<BOXCAMTRIG|
+                 #endif
+                 #if GPS
+                   f.GPS_HOME_MODE<<BOXGPSHOME|f.GPS_HOLD_MODE<<BOXGPSHOLD|
+                 #endif
+                 #if MAG
+                   f.HEADFREE_MODE<<BOXHEADFREE|
+                 #endif
+                 #if defined(SERVO)
+                   f.PASSTHRU_MODE<<BOXPASSTHRU|
+                 #endif
+                 #if defined(BUZZER)
+                   rcOptions[BOXBEEPERON]<<BOXBEEPERON|
+                 #endif
+                 #if defined(LED_FLASHER)
+                   rcOptions[BOXLEDMAX]<<BOXLEDMAX|rcOptions[BOXLLIGHTS]<<BOXLLIGHTS|
+                 #endif
+                 #if MAG
+                   rcOptions[BOXHEADADJ]<<BOXHEADADJ|
+                 #endif
+                 0);
      break;
    case MSP_RAW_IMU:
      headSerialReply(18);
@@ -258,7 +301,7 @@ void evaluateCommand() {
      headSerialReply(16);
      for(uint8_t i=0;i<8;i++) serialize16(rcData[i]);
      break;
-#if GPS
+   #if GPS
    case MSP_RAW_GPS:
      headSerialReply(14);
      serialize8(f.GPS_FIX);
@@ -274,7 +317,7 @@ void evaluateCommand() {
      serialize16(GPS_directionToHome);
      serialize8(GPS_update & 1);
      break;
-#endif
+   #endif
    case MSP_ATTITUDE:
      headSerialReply(8);
      for(uint8_t i=0;i<2;i++) serialize16(angle[i]);
@@ -332,8 +375,7 @@ void evaluateCommand() {
        serialize8(PWM_PIN[i]);
      }
      break;
-
-#if defined(USE_MSP_WP)    
+   #if defined(USE_MSP_WP)    
    case MSP_WP:
      {
       uint8_t wp_no = read8();    //get the wp number  
@@ -354,8 +396,7 @@ void evaluateCommand() {
       } 
      }
      break;  
-#endif	 
-	 
+   #endif	 
    case MSP_RESET_CONF:
      conf.checkNewConf++;
      checkFirstTime();
@@ -379,8 +420,7 @@ void evaluateCommand() {
        serialize16(debug[i]); // 4 variables are here for general monitoring purpose
      }
      break;
-
-#ifdef DEBUGMSG
+   #ifdef DEBUGMSG
    case MSP_DEBUGMSG:
      {
        uint8_t size = debugmsg_available();
@@ -389,8 +429,7 @@ void evaluateCommand() {
        debugmsg_serialize(size);
      }
      break;
-#endif
-
+   #endif
    default:  // we do not know how to handle the (valid) message, indicate error MSP $M!
      headSerialError(0);
      break;
@@ -580,6 +619,9 @@ void serialize8(uint8_t a) {
     if (headTX != t) {
       if (++t >= TX_BUFFER_SIZE) t = 0;
       UDR0 = bufTX[t];  // Transmit next byte in the ring
+#if defined(MEGA) && defined(OSD_ON_UART3)
+      UDR3 = bufTX[t];  // Transmit next byte in the ring via UART3
+#endif
       tailTX = t;
     }
     if (t == headTX) UCSR0B &= ~(1<<UDRIE0); // Check if all data is transmitted . if yes disable transmitter UDRE interrupt
@@ -639,24 +681,42 @@ static void inline SerialEnd(uint8_t port) {
 }
 
 static void inline store_uart_in_buf(uint8_t data, uint8_t portnum) {
+  #if defined(SPEKTRUM)
+    if (portnum == SPEK_SERIAL_PORT) {
+      if (!spekFrameFlags) { 
+        sei();
+        uint32_t spekTimeNow = (timer0_overflow_count << 8) * (64 / clockCyclesPerMicrosecond()); //Move timer0_overflow_count into registers so we don't touch a volatile twice
+        uint32_t spekInterval = spekTimeNow - spekTimeLast;                                       //timer0_overflow_count will be slightly off because of the way the Arduino core timer interrupt handler works; that is acceptable for this use. Using the core variable avoids an expensive call to millis() or micros()
+        spekTimeLast = spekTimeNow;
+        if (spekInterval > 5000) {  //Potential start of a Spektrum frame, they arrive every 11 or every 22 ms. Mark it, and clear the buffer. 
+          serialTailRX[portnum] = 0;
+          serialHeadRX[portnum] = 0;
+          spekFrameFlags = 0x01;
+        }
+        cli();
+      }
+    }
+  #endif
+
   uint8_t h = serialHeadRX[portnum];
   if (++h >= RX_BUFFER_SIZE) h = 0;
   if (h == serialTailRX[portnum]) return; // we did not bite our own tail?
-  serialBufferRX[serialHeadRX[portnum]][portnum] = data;
+  serialBufferRX[serialHeadRX[portnum]][portnum] = data;  
   serialHeadRX[portnum] = h;
 }
 
-#if defined(PROMINI) && !(defined(SPEKTRUM))
+#if defined(PROMINI)
   ISR(USART_RX_vect)  { store_uart_in_buf(UDR0, 0); }
 #endif
 
-#if (defined(MEGA) || defined(PROMICRO)) && !defined(SPEKTRUM)
-  ISR(USART1_RX_vect) { store_uart_in_buf(UDR1, 1); }
+#if (defined(MEGA) || defined(PROMICRO))
+  ISR(USART1_RX_vect)  { store_uart_in_buf(UDR1, 1); }
 #endif
+
 #if defined(MEGA)
-  ISR(USART0_RX_vect) { store_uart_in_buf(UDR0, 0); }
-  ISR(USART2_RX_vect) { store_uart_in_buf(UDR2, 2); }
-  ISR(USART3_RX_vect) { store_uart_in_buf(UDR3, 3); }
+  ISR(USART0_RX_vect)  { store_uart_in_buf(UDR0, 0); }
+  ISR(USART2_RX_vect)  { store_uart_in_buf(UDR2, 2); }
+  ISR(USART3_RX_vect)  { store_uart_in_buf(UDR3, 3); }
 #endif
 
 uint8_t SerialRead(uint8_t port) {
@@ -680,6 +740,13 @@ uint8_t SerialRead(uint8_t port) {
   return c;
 }
 
+#if defined(SPEKTRUM)
+  uint8_t SerialPeek(uint8_t port) {
+      uint8_t c = serialBufferRX[serialTailRX[port]][port];
+      if ((serialHeadRX[port] != serialTailRX[port])) return c; else return 0;
+  }
+#endif
+
 uint8_t SerialAvailable(uint8_t port) {
   #if defined(PROMICRO)
     #if !defined(TEENSY20)
@@ -689,7 +756,7 @@ uint8_t SerialAvailable(uint8_t port) {
     #endif
     port = 0;
   #endif
-  return (serialHeadRX[port] != serialTailRX[port]);
+  return (serialHeadRX[port] - serialTailRX[port])%RX_BUFFER_SIZE;
 }
 
 void SerialWrite(uint8_t port,uint8_t c){

@@ -579,6 +579,9 @@ void lcdprint_int16(int16_t v) {
 
 void initLCD() {
   blinkLED(20,30,1);
+  #if defined(BUZZER)
+    beep_confirmation = 1;
+  #endif
 #if defined(LCD_SERIAL3W)
   SerialEnd(0);
   //init LCD
@@ -882,11 +885,11 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
 #endif
 #ifdef LCD_CONF_AUX
   #if ACC
-    &lcd_param_text42, &conf.activate[BOXACC], &__AUX1,
-    &lcd_param_text42, &conf.activate[BOXACC], &__AUX2,
+    &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX1,
+    &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX2,
     #ifndef SUPPRESS_LCD_CONF_AUX34
-      &lcd_param_text42, &conf.activate[BOXACC], &__AUX3,
-      &lcd_param_text42, &conf.activate[BOXACC], &__AUX4,
+      &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX3,
+      &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX4,
     #endif
   #endif
   #if BARO
@@ -1123,6 +1126,9 @@ static uint8_t lcdStickState[3];
 #ifdef DISPLAY_2LINES
 void ConfigRefresh(uint8_t p) {
   blinkLED(10,20,1);
+  #if defined(BUZZER)
+    beep_toggle = 1;
+  #endif
   strcpy_P(line1,PSTR("                "));
   strcpy(line2,line1);
   strcpy_P(line1, (char*)pgm_read_word(&(lcd_param_ptr_table[p * 3])));
@@ -1141,6 +1147,9 @@ void ConfigRefresh(uint8_t p) {
   int8_t pp = (int8_t)p;
   #ifndef OLED_I2C_128x64
    blinkLED(2,4,1);
+   #if defined(BUZZER)
+    beep_toggle = 1;
+   #endif
    LCDclear();
   #else
    delay(60);
@@ -1192,14 +1201,16 @@ void configurationLoop() {
       ConfigRefresh(p);
       refreshLCD = 0;
     }
-
-#if defined(LCD_TEXTSTAR) || defined(LCD_VT100) // textstar or vt100 can send keys
-    key = ( SerialAvailable(0) ? SerialRead(0) : 0 );
-#endif
-#ifdef LCD_CONF_DEBUG
-    delay(1000);
-    if (key == LCD_MENU_NEXT) key=LCD_VALUE_UP; else key = LCD_MENU_NEXT;
-#endif
+    #if defined(SPEKTRUM)
+      readRawRC(1); delay(44); // For digital receivers like Spektrum, SBUS, and Serial, to ensure that an "old" frame does not cause immediate exit at startup. 
+    #endif
+    #if defined(LCD_TEXTSTAR) || defined(LCD_VT100) // textstar or vt100 can send keys
+      key = ( SerialAvailable(0) ? SerialRead(0) : 0 );
+    #endif
+    #ifdef LCD_CONF_DEBUG
+      delay(1000);
+      if (key == LCD_MENU_NEXT) key=LCD_VALUE_UP; else key = LCD_MENU_NEXT;
+    #endif
     for (i = ROLL; i < THROTTLE; i++) {uint16_t Tmp = readRawRC(i); lcdStickState[i] = (Tmp < MINCHECK) | ((Tmp > MAXCHECK) << 1);};
     if (key == LCD_MENU_SAVE_EXIT || (IsLow(YAW) && IsHigh(PITCH))) LCD = 0; // save and exit
     else if (key == LCD_MENU_ABORT || (IsHigh(YAW) && IsHigh(PITCH))) LCD = 2;// exit without save: eeprom has only 100.000 write cycles
@@ -1220,6 +1231,9 @@ void configurationLoop() {
     }
   } // while (LCD == 1)
   blinkLED(20,30,1);
+  #if defined(BUZZER)
+    beep_confirmation = 1;
+  #endif
 
   LCDclear();
   LCDsetLine(1);
