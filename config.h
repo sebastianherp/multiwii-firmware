@@ -437,7 +437,7 @@
          balancing options ran out. Uncomment only one option!
          IMPORTANT! Change low pass filter setting changes PID behaviour, so retune your PID's after changing LPF.*/
       //#define MPU6050_LPF_256HZ     // This is the default setting, no need to uncomment, just for reference
-      //#define MPU6050_LPF_188HZ
+      #define MPU6050_LPF_188HZ
       //#define MPU6050_LPF_98HZ
       //#define MPU6050_LPF_42HZ
       //#define MPU6050_LPF_20HZ
@@ -548,7 +548,7 @@
        note: only the RX PIN is used, the GPS is not configured by multiwii
        the GPS must be configured to output GGA and RMC NMEA sentences (which is generally the default conf for most GPS devices)
        at least 5Hz update rate. uncomment the first line to select the GPS serial port of the arduino */
-    //#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
+    #define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
     #define GPS_BAUD   115200
     
     //#define GPS_PROMINI_SERIAL    57600 // Will Autosense if GPS is connected when ardu boots
@@ -718,7 +718,7 @@
        vbat = [0;1023]*16/VBATSCALE
        must be associated with #define BUZZER ! */
     #define VBAT              // uncomment this line to activate the vbat code
-    #define VBATSCALE     121 // change this value if readed Battery voltage is different than real voltage
+    #define VBATSCALE     73 // change this value if readed Battery voltage is different than real voltage
     #define VBATLEVEL1_3S 107 // 10,7V
     #define VBATLEVEL2_3S 103 // 10,3V
     #define VBATLEVEL3_3S 99  // 9.9V
