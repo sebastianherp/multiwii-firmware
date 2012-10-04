@@ -250,6 +250,67 @@ void getEstimatedAttitude(){
     if ( heading > 180)      heading = heading - 360;
     else if (heading < -180) heading = heading + 360;
   #endif
+  
+
+#define CALC_GLOBAL_ACC  
+#if defined(CALC_GLOBAL_ACC)
+  // Get global (earth frame) acceleration
+  // ======================================
+  // this code adds up to 1000 ms to the cycle time and 930 bytes to the compiled binary
+  // knows bugs:
+  // - lag or no lag but settle issues with different acc-vectors used ... 
+  //   looks like pitch/roll aren't as realtime as everybody believes?
+  // - significant pitch AND roll causes MultiWii to calculate wrong pitch/roll values ...
+  //   earth_acc will obviously report wrong values in that case (example: with a quadX configuration
+  //   place the copter on one of its arms, z-axis pointing sideways. MultiWii will report pitch/roll of both 90°
+  //   but in reality that placement equals a pitch and roll of only 45°)
+  //   fix is replacing
+  //     angle[ROLL]  =  _atan2(EstG.V.X , EstG.V.Z) ;
+  //     angle[PITCH] =  _atan2(EstG.V.Y , EstG.V.Z) ;
+  //   with
+  //     angle[ROLL]  =  _atan2(EstG.V.X , sqrt(EstG.V.Y*EstG.V.Y + EstG.V.Z*EstG.V.Z)) ;
+  //     angle[PITCH] =  _atan2(EstG.V.Y , sqrt(EstG.V.X*EstG.V.X + EstG.V.Z*EstG.V.Z)) ;
+  // - gimbal lock is a problem
+  
+  
+  // heading is not really precise only whole degrees
+  // need to convert to rad
+  #define deg2rad(x) (float)(x*PI/1800.0f)
+  float cr = cos(deg2rad(angle[ROLL]));
+  float cp = cos(deg2rad(angle[PITCH]));
+  float cy = cos(deg2rad(heading*10));
+  float sr = sin(deg2rad(angle[ROLL]));
+  float sp = sin(deg2rad(angle[PITCH]));
+  float sy = sin(deg2rad(heading*10));
+  
+  // MultiWii implementation doesn't follow standard literature so axis are switched and inverted
+  // I assume this is because of the original Wii hardware
+  
+  // use acc values directly (lags, because angles are lagging behind reality)
+  #define USE_ACC_FOR_EARTH_ACC 1
+  
+#if USE_ACC_FOR_EARTH_ACC == 1
+  axis = 1; int16_t acc_x = -ACC_VALUE;
+  axis = 0; int16_t acc_y = ACC_VALUE;
+  axis = 2; int16_t acc_z = ACC_VALUE;
+#else
+  // use EstG values (doesn't lag, but needs time to settle after a rotation)
+  int16_t acc_x = -EstG.V.Y;
+  int16_t acc_y = EstG.V.X;
+  int16_t acc_z = EstG.V.Z;
+#endif
+  
+  float earth_acc_x = (cp*cy) * acc_x + (sr*sp*cy - cr*sy) * acc_y + (sr*sy + cr*sp*cy) * acc_z;
+  float earth_acc_y = (cp*sy) * acc_x + (cr*cy + sr*sp*sy) * acc_y + (-sr*cy + cr*sp*sy) * acc_z;
+  float earth_acc_z = (-sp) * acc_x + (sr*cp) * acc_y + (cr*cp) * acc_z;
+  
+  debug[0] = earth_acc_x;
+  debug[1] = earth_acc_y;
+  debug[2] = earth_acc_z;
+  
+
+#endif  
+  
 }
 
 #define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
