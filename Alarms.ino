@@ -7,6 +7,7 @@
                  warn_failsafe = 0, 
                  warn_runtime = 0,
                  warn_vbat = 0,
+                 warn_pMeter = 0,
                  buzzerSequenceActive=0;
 
   uint8_t isBuzzerON() { return channelIsOn[1]; } // returns true while buzzer is buzzing; returns 0 for silent periods
@@ -17,21 +18,17 @@
   void alarmHandler(){
     
     #if defined(VBAT)
-      if ( ( (vbat>conf.vbatlevel1_3s)
-      #if defined(POWERMETER)
-                           && ( (pMeter[PMOTOR_SUM] < pAlarm) || (pAlarm == 0) )
-      #endif
-                         )  || (conf.no_vbat > vbat)                              ) // ToLuSe
-      {                                          // VBAT ok AND powermeter ok, alarm off
-        warn_vbat = 0;
-      #if defined(POWERMETER)
-      } else if (pMeter[PMOTOR_SUM] > pAlarm) {                             // sound alarm for powermeter
-        warn_vbat = 4;
-      #endif
-      } else if (vbat > conf.vbatlevel2_3s) warn_vbat = 1;
-      else if (vbat > conf.vbatlevel3_3s)   warn_vbat = 2;
-      else                           warn_vbat = 4;
+      if (vbatMin < conf.vbatlevel4_3s) warn_vbat = 4;
+      else if ( (vbat>conf.vbatlevel1_3s)  || (conf.no_vbat > vbat))warn_vbat = 0;
+      else if (vbat > conf.vbatlevel2_3s) warn_vbat = 1;
+      else if (vbat > conf.vbatlevel3_3s) warn_vbat = 2;
+      else warn_vbat = 4;
     #endif
+ 
+    #if defined(POWERMETER)
+      if ( (pMeter[PMOTOR_SUM] < pAlarm) || (pAlarm == 0) ) warn_pMeter = 0;
+      else if (pMeter[PMOTOR_SUM] > pAlarm) warn_pMeter = 1;
+    #endif 
  
     if ( rcOptions[BOXBEEPERON] )beeperOnBox = 1;
     else beeperOnBox = 0;
@@ -53,11 +50,11 @@
     #endif  
      
     #if defined(FAILSAFE)
-      if ( failsafeCnt > (5*FAILSAVE_DELAY) && f.ARMED) {
+      if ( failsafeCnt > (5*FAILSAFE_DELAY) && f.ARMED) {
         warn_failsafe = 1;                                                                   //set failsafe warning level to 1 while landing
-        if (failsafeCnt > 5*(FAILSAVE_DELAY+FAILSAVE_OFF_DELAY)) warn_failsafe = 2;          //start "find me" signal after landing   
+        if (failsafeCnt > 5*(FAILSAFE_DELAY+FAILSAFE_OFF_DELAY)) warn_failsafe = 2;          //start "find me" signal after landing   
       }
-      if ( failsafeCnt > (5*FAILSAVE_DELAY) && !f.ARMED) warn_failsafe = 2;                  // tx turned off while motors are off: start "find me" signal
+      if ( failsafeCnt > (5*FAILSAFE_DELAY) && !f.ARMED) warn_failsafe = 2;                  // tx turned off while motors are off: start "find me" signal
       if ( failsafeCnt == 0) warn_failsafe = 0;                                              // turn off alarm if TX is okay
     #endif
     
@@ -79,14 +76,15 @@
     /********************************************************************/  
     // beepcode(length1,length2,length3,pause)
     //D: Double, L: Long, M: Middle, S: Short, N: None
-    if (warn_failsafe == 2)      beep_code('L','N','N','D');                 //failsafe "find me" signal
-    else if (warn_failsafe == 1) beep_code('S','L','L','S');                 //failsafe landing active              
+    if (warn_failsafe == 2)      beep_code('L','N','N','D');
+    else if (warn_failsafe == 1) beep_code('S','L','L','S');            
     else if (beep_toggle == 1) {beep_code('S','N','N','N');      } 
     else if (beep_toggle == 2)    beep_code('S','S','N','N');       
-    else if (beep_toggle > 2)     beep_code('S','S','S','N');         
+    else if (beep_toggle > 2)     beep_code('S','S','S','N');     
     else if (warn_noGPSfix == 1) beep_code('S','S','N','S');    
-    else if (beeperOnBox == 1)   beep_code('S','S','S','S');                 //beeperon
-    else if (warn_runtime == 1 && f.ARMED == 1)beep_code('S','S','S','N'); //Runtime warning      
+    else if (beeperOnBox == 1)   beep_code('S','S','S','S');
+    else if (warn_pMeter == 1)  beep_code('S','S','N','M'); 
+    else if (warn_runtime == 1 && f.ARMED == 1)beep_code('S','S','S','N');     
     else if (warn_vbat == 4)     beep_code('M','S','M','S'); // beep_code('S','S','L','D');
     else if (warn_vbat == 2)     beep_code('M','N','M','D'); // beep_code('S','L','N','D');
     else if (warn_vbat == 1)     beep_code('M','N','N','D'); // beep_code('L','N','N','D');
@@ -168,7 +166,13 @@ void blinkLED(uint8_t num, uint8_t ontime,uint8_t repeat) {
         switch_landing_lights(1);
       #endif
       LEDPIN_TOGGLE; // switch LEDPIN state
+      #if defined(BUZZER)
+        BUZZERPIN_ON;
+      #endif
       delay(ontime);
+      #if defined(BUZZER)
+        BUZZERPIN_OFF;
+      #endif
       #if defined(LED_FLASHER)
         switch_led_flasher(0);
       #endif

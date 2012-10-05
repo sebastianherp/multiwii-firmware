@@ -55,9 +55,9 @@
   #if defined(SERVO)
     #if defined(AIRPLANE)|| defined(HELICOPTER)
       // To prevent motor to start at reset. atomicServo[7]=5 or 249 if reversed servo
-      volatile uint8_t atomicServo[8] = {8000,8000,8000,8000,8000,8000,8000,8000}; 
+      volatile uint16_t atomicServo[8] = {8000,8000,8000,8000,8000,8000,8000,320}; 
     #else
-      volatile uint16_t atomicServo[8] = {8000,8000,8000,8000,8000,8000,8000,320};
+      volatile uint16_t atomicServo[8] = {8000,8000,8000,8000,8000,8000,8000,8000};
     #endif
   #endif
   #if (NUMBER_MOTOR > 4)
@@ -91,7 +91,7 @@ void writeServos() {
       }
     #endif
     #if defined(SEC_SERVO_FROM)   // write secundary servos
-      #if defined(SERVO_TILT) && defined(MMSERVOGIMBAL)
+      #if (defined(SERVO_TILT)|| defined(SERVO_MIX_TILT)) && defined(MMSERVOGIMBAL)
         // Moving Average Servo Gimbal by Magnetron1
         static int16_t mediaMobileServoGimbalADC[3][MMSERVOGIMBALVECTORLENGHT];
         static int32_t mediaMobileServoGimbalADCSum[3];
@@ -722,9 +722,15 @@ void initializeServo() {
         SOFT_PWM_CHANNEL1 += atomicPWM_PIN5_highState;
         state = 1;
       }else if(state == 1){
+        SOFT_PWM_CHANNEL1 += atomicPWM_PIN5_highState;
+        state = 2;
+      }else if(state == 2){
         SOFT_PWM_1_PIN_LOW;
         SOFT_PWM_CHANNEL1 += atomicPWM_PIN5_lowState;
-        state = 0;  
+        state = 3;  
+      }else if(state == 3){
+        SOFT_PWM_CHANNEL1 += atomicPWM_PIN5_lowState;
+        state = 0;   
       }
     }
     ISR(SOFT_PWM_ISR2) { 
@@ -734,9 +740,15 @@ void initializeServo() {
         SOFT_PWM_CHANNEL2 += atomicPWM_PIN6_highState;
         state = 1;
       }else if(state == 1){
+        SOFT_PWM_CHANNEL2 += atomicPWM_PIN6_highState;
+        state = 2;
+      }else if(state == 2){
         SOFT_PWM_2_PIN_LOW;
         SOFT_PWM_CHANNEL2 += atomicPWM_PIN6_lowState;
-        state = 0;  
+        state = 3;  
+      }else if(state == 3){
+        SOFT_PWM_CHANNEL2 += atomicPWM_PIN6_lowState;
+        state = 0;   
       }
     }
   #else
@@ -1073,6 +1085,9 @@ void mixTable() {
 /*************************************************************************************************************************/ 
 /*************************************************************************************************************************/    
     // ServoRates
+    #if !defined(USE_THROTTLESERVO)
+      motor[0]= rcData[THROTTLE];
+    #endif
     for(i=3;i<8;i++){
       servo[i]  = map(servo[i], SERVO_MIN, SERVO_MAX,servoLimit[i][0],servoLimit[i][1]);
       servo[i]  = constrain( servo[i], SERVO_MIN, SERVO_MAX);

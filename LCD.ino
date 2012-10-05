@@ -676,7 +676,7 @@ void initLCD() {
   //    strcpy_P(line1,PSTR("Config All Parms")); LCDsetLine(2); LCDprintChar(line1);
   //  }
   #ifdef LCD_TELEMETRY_STEP
-    telemetry = telemetryStepSequence[0]; //[++telemetryStepIndex % strlen(telemetryStepSequence)];
+    telemetry = telemetryStepSequence[telemetryStepIndex]; //[++telemetryStepIndex % strlen(telemetryStepSequence)];
   #endif
 }
 #endif //Support functions for LCD_CONF and LCD_TELEMETRY
@@ -789,11 +789,11 @@ const char PROGMEM lcd_param_text37 [] = "SERvTRIM 2";
 #ifdef TRI //                            0123456789
 const char PROGMEM lcd_param_text38 [] = "SERvTRIM Y";
 #endif
-#ifdef LOG_VALUES
-const char PROGMEM lcd_param_text39 [] = "failsafes ";
-const char PROGMEM lcd_param_text40 [] = "i2c errors";
-const char PROGMEM lcd_param_text41 [] = "an overrun";
-#endif
+//#ifdef LOG_VALUES
+//const char PROGMEM lcd_param_text39 [] = "failsafes ";
+//const char PROGMEM lcd_param_text40 [] = "i2c errors";
+//const char PROGMEM lcd_param_text41 [] = "an overrun";
+//#endif
 #if defined(LCD_CONF_AUX)
 const char PROGMEM lcd_param_text42 [] = "AUX level ";
 const char PROGMEM lcd_param_text43 [] = "AUX baro  ";
@@ -840,12 +840,13 @@ const char PROGMEM lcd_param_text98 [] = "NAV Rate D";
 const char PROGMEM lcd_param_text101 [] = "Fail Throt";
 #endif
 #ifdef VBAT
-const char PROGMEM lcd_param_text35 [] =  "Batt Volt ";
+const char PROGMEM lcd_param_text35 [] =  "batt volt ";
 const char PROGMEM lcd_param_text102 [] = "VBAT SCALE";
 const char PROGMEM lcd_param_text103 [] = "BattWarn 1";
 const char PROGMEM lcd_param_text104 [] = "BattWarn 2";
 const char PROGMEM lcd_param_text105 [] = "BattWarn 3";
-const char PROGMEM lcd_param_text106 [] = "Batt NoBat";
+const char PROGMEM lcd_param_text106 [] = "BattWarn 4";
+const char PROGMEM lcd_param_text107 [] = "Batt NoBat";
 #endif
 #ifdef POWERMETER
 const char PROGMEM lcd_param_text33 [] = "pmeter sum";
@@ -1026,7 +1027,7 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
   &lcd_param_text113, &conf.pleveldiv, &__SE,
 #endif
 #if defined (FAILSAFE)
-  &lcd_param_text101, &conf.failsave_throttle, &__ST,
+  &lcd_param_text101, &conf.failsafe_throttle, &__ST,
 #endif
 #ifdef VBAT
   &lcd_param_text35, &vbat, &__VB,
@@ -1034,7 +1035,8 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
   &lcd_param_text103, &conf.vbatlevel1_3s, &__P,
   &lcd_param_text104, &conf.vbatlevel2_3s, &__P,
   &lcd_param_text105, &conf.vbatlevel3_3s, &__P,
-  &lcd_param_text106, &conf.no_vbat, &__P,
+  &lcd_param_text106, &conf.vbatlevel4_3s, &__P,
+  &lcd_param_text107, &conf.no_vbat, &__P,
 #endif
 #ifdef FLYING_WING
   &lcd_param_text36, &conf.wing_left_mid, &__SE,
@@ -1063,11 +1065,11 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
 #ifdef CYCLETIME_FIXATED
   &lcd_param_text120, &conf.cycletime_fixated, &__SE,
 #endif
-#ifdef LOG_VALUES
-  &lcd_param_text39, &failsafeEvents, &__L,
-  &lcd_param_text40, &i2c_errors_count, &__L,
-  &lcd_param_text41, &annex650_overrun_count, &__L
-#endif
+//#ifdef LOG_VALUES
+//  &lcd_param_text39, &failsafeEvents, &__L,
+//  &lcd_param_text40, &i2c_errors_count, &__L,
+//  &lcd_param_text41, &annex650_overrun_count, &__L
+//#endif
 };
 #define PARAMMAX (sizeof(lcd_param_ptr_table)/6 - 1)
 // ************************************************************************************************************
@@ -1378,56 +1380,43 @@ void fill_line2_AmaxA() {
 }
 #endif
 
-void fill_line1_VmA() {
-  strcpy_P(line1,PSTR("--.-V   -----mAh")); // uint8_t vbat, intPowerMeterSum
-  //                   0123456789.12345
+void output_V() {
   #ifdef VBAT
-    line1[0] = digit100(vbat);
-    line1[1] = digit10(vbat);
-    line1[3] = digit1(vbat);
+    strcpy_P(line1,PSTR(" --.-V"));
+    //                   0123456789.12345
+    line1[1] = digit100(vbat);
+    line1[2] = digit10(vbat);
+    line1[4] = digit1(vbat);
+    LCDbar(7, (((vbat - conf.vbatlevel1_3s)*100)/(VBATNOMINAL-conf.vbatlevel1_3s)) );
+    LCDprintChar(line1);
   #endif
-  #ifdef POWERMETER
-    line1[8] = digit10000(intPowerMeterSum);
-    line1[9] = digit1000(intPowerMeterSum);
-    line1[10] = digit100(intPowerMeterSum);
-    line1[11] = digit10(intPowerMeterSum);
-    line1[12] = digit1(intPowerMeterSum);
-  #endif
-  #ifdef BUZZER
-    if (isBuzzerON()) { // buzzer on? then add some blink for attention
-      line1[5] = '+'; line1[6] = '+'; line1[7] = '+';
-    }
-  #endif
-  // set mark, if we had i2c errors, failsafes or annex650 overruns
-  if (i2c_errors_count || failsafeEvents || annex650_overrun_count) line1[6] = '!';
-}
-void output_VmAbars() {
-#ifdef VBAT
-  LCDbar(7, (((vbat - conf.vbatlevel1_3s)*100)/VBATREF) );
-  LCDprint(' ');
-#else
-  LCDprintChar("        ");
-#endif
-#ifdef POWERMETER
-  //     intPowerMeterSum = (pMeter[PMOTOR_SUM]/PLEVELDIV);
-  //   pAlarm = (uint32_t) powerTrigger1 * (uint32_t) PLEVELSCALE * (uint32_t) PLEVELDIV; // need to cast before multiplying
-  if (conf.powerTrigger1) {
-    LCDbar(8, 100 - ( intPowerMeterSum/(uint16_t)conf.powerTrigger1) *2 );// bar graph powermeter (scale intPowerMeterSum/powerTrigger1 with *100/PLEVELSCALE)
-  }
-#endif
-}
-void output_Vmin() {
-  strcpy_P(line1,PSTR("--.-Vmin")); // uint8_t vbat, intPowerMeterSum
-  //                   0123456789.12345
-  #ifdef VBAT
-    //LCDbar(7, (((vbatMin - conf.vbatlevel1_3s)*100)/VBATREF) );
-    line1[0] = digit100(vbatMin);
-    line1[1] = digit10(vbatMin);
-    line1[3] = digit1(vbatMin);
-  #endif
-  LCDprintChar(line1);
 }
 
+void output_Vmin() {
+  #ifdef VBAT
+    strcpy_P(line1,PSTR(" --.-Vmin"));
+    //                   0123456789.12345
+    line1[1] = digit100(vbatMin);
+    line1[2] = digit10(vbatMin);
+    line1[4] = digit1(vbatMin);
+    LCDbar(7, (vbatMin > conf.vbatlevel4_3s ? (((vbatMin - conf.vbatlevel4_3s)*100)/(VBATNOMINAL-conf.vbatlevel4_3s)) : 0 ));
+    LCDprintChar(line1);
+  #endif
+}
+void output_mAh() {
+  #ifdef POWERMETER
+    strcpy_P(line1,PSTR(" -----mAh"));
+    line1[1] = digit10000(intPowerMeterSum);
+    line1[2] = digit1000(intPowerMeterSum);
+    line1[3] = digit100(intPowerMeterSum);
+    line1[4] = digit10(intPowerMeterSum);
+    line1[5] = digit1(intPowerMeterSum);
+    if (conf.powerTrigger1) {
+      LCDbar(7, 100 - ( intPowerMeterSum/(uint16_t)conf.powerTrigger1) *2 );// bar graph powermeter (scale intPowerMeterSum/powerTrigger1 with *100/PLEVELSCALE)
+    }
+    LCDprintChar(line1);
+  #endif
+}
 void fill_line1_cycle() {
   strcpy_P(line1,PSTR("Cycle    -----us")); //uin16_t cycleTime
   // 0123456789.12345*/
@@ -1453,30 +1442,29 @@ void fill_line2_cycleMinMax() {
   line2[12] = digit1(cycleTimeMax);
 #endif
 }
-void fill_line1_fails() {
-  strcpy_P(line1,PSTR("Fails i2c t-errs"));
-}
-void fill_line2_fails_values() {
+void output_fails() {
   uint16_t unit;
-  // 0123456789012345
-  strcpy_P(line2,PSTR("  --   --     --"));
+  //                   0123456789012345
+  strcpy_P(line2,PSTR("-- Fails  -- i2c"));
   unit = failsafeEvents;
   //line2[0] = '0' + unit / 1000 - (unit/10000) * 10;
   //line2[1] = '0' + unit / 100  - (unit/1000)  * 10;
-  line2[2] = digit10(unit);
-  line2[3] = digit1(unit);
+  line2[0] = digit10(unit);
+  line2[1] = digit1(unit);
   unit = i2c_errors_count;
   //line2[5] = '0' + unit / 1000 - (unit/10000) * 10;
   //line2[6] = '0' + unit / 100  - (unit/1000)  * 10;
-  line2[7] = digit10(unit);
-  line2[8] = digit1(unit);
-  unit = annex650_overrun_count;
-  //line2[12] = '0' + unit / 1000 - (unit/10000) * 10;
-  //line2[13] = '0' + unit / 100  - (unit/1000)  * 10;
-  line2[14] = digit10(unit);
-  line2[15] = digit1(unit);
+  line2[10] = digit10(unit);
+  line2[11] = digit1(unit);
+  LCDprintChar(line2);
 }
-
+void output_annex() {
+  //                   0123456789
+  strcpy_P(line2,PSTR("annex --"));
+  line2[6] = digit10(annex650_overrun_count);
+  line2[7] = digit1(annex650_overrun_count);
+  LCDprintChar(line2);
+}
 static char checkboxitemNames[][4] = {
     #if ACC
       "Ang","Hor",
@@ -1487,7 +1475,7 @@ static char checkboxitemNames[][4] = {
     #if MAG
       "Mag",
     #endif
-    #if defined(SERVO_TILT) || defined(GIMBAL)
+    #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
       "CSt",
     #endif
     #if defined(CAMTRIG)
@@ -1565,12 +1553,11 @@ void lcd_telemetry() {
     case 2: // button B on Textstar LCD -> Voltage, PowerSum and power alarm trigger value
     case '2':
     if (linenr++ % 2) {
-      fill_line1_VmA();
       LCDsetLine(1);
-      LCDprintChar(line1);
+      output_V();
     } else {
       LCDsetLine(2);
-      output_VmAbars();
+      output_mAh();
     }
     break;
 #endif
@@ -1610,15 +1597,13 @@ void lcd_telemetry() {
     case 5:
     case '5':
     if (linenr++ % 2) {
-      fill_line1_fails();
       LCDsetLine(1);
-      LCDprintChar(line1);
+      output_fails();
     } else {
-      fill_line2_fails_values();
       LCDsetLine(2);
-      LCDprintChar(line2);
+      output_annex();
     }
-    break;
+      break;
 #endif
 #ifndef SUPPRESS_TELEMETRY_PAGE_6
     case 6: // RX inputs
@@ -1738,53 +1723,60 @@ void lcd_telemetry() {
     {
       static uint8_t index = 0;
       switch (index++ % 7) { // not really linenumbers
-        case 0:// V, mAh
+        case 0:// V
           linenr = 1;
           LCDsetLine(linenr++);
-          fill_line1_VmA();
           #ifdef BUZZER
             if (isBuzzerON()) { LCDattributesReverse(); } // buzzer on? then add some blink for attention
           #endif
-          LCDprintChar(line1);
+          output_V();
           break;
-        case 1:// V, mAh bars
+        case 1:// mAh
            LCDsetLine(linenr++);
-           output_VmAbars();
-           break;
-        case 2:// Vmin
-           LCDsetLine(linenr++);
-           output_Vmin();
+           output_mAh();
            LCDattributesOff(); // turn Reverse off for rest of display
            break;
-        case 3:// A, maxA
-          #ifdef POWERMETER_HARD
-            LCDsetLine(linenr++);
-            fill_line2_AmaxA();
-            LCDprintChar(line2);
-          #endif
-          break;
-        case 4:// checkboxstatus
-          LCDsetLine(linenr++);
+        case 2:// checkboxstatus
+          //LCDsetLine(linenr++);
           LCDsetLine(linenr);
           strcpy_P(line1,PSTR("... ... ... ... "));
           LCDprintChar(line1);
           LCDsetLine(linenr++);
           output_checkboxitems();
           break;
-        case 5:// uptime, uptime_armed
+        case 3:// height
           LCDsetLine(linenr++);
+          #if BARO
+             {
+               LCDsetLine(linenr++);
+               int16_t h = (BaroAlt - BAROaltStart) / 100;
+               LCDprint('A'); lcdprint_int16(h); LCDprint('m');
+               h = (BAROaltMax - BAROaltStart) / 100;
+               LCDprintChar(" ("); lcdprint_int16(h);
+             }
+           #endif
+           break;
+        case 4:// uptime, uptime_armed
+          //LCDsetLine(linenr++);
           LCDsetLine(linenr++);
           LCDprintChar("U:"); print_uptime(millis() / 1000 );
           LCDprintChar("  A:"); print_uptime(armedTime / 1000000);
           break;
-        case 6:// height
-          #if BARO
+        case 5:// errors, Vmin
+           LCDsetLine(linenr++);
+           if (failsafeEvents | (i2c_errors_count>>1)) { // ignore i2c==1 because of bma020-init
+             LCDattributesReverse();
+             output_fails();
+             LCDattributesOff();
+           }
+           LCDsetLine(linenr++);
+           output_Vmin();
+           break;
+        case 6:// A, maxA
+          #ifdef POWERMETER_HARD
             LCDsetLine(linenr++);
-            LCDsetLine(linenr++);
-            int16_t h = (BaroAlt - BAROaltStart) / 100;
-            LCDprint('A'); lcdprint_int16(h); LCDprint('m');
-            h = (BAROaltMax - BAROaltStart) / 100;
-            LCDprintChar(" ("); lcdprint_int16(h);
+            fill_line2_AmaxA();
+            LCDprintChar(line2);
           #endif
           break;
       }
@@ -1940,15 +1932,13 @@ void lcd_telemetry() {
       fill_line2_cycleMinMax();
       LCDprintChar(line2);
       break;
-      case 2:// Fails.... labels
+      case 2:// Fails, i2c
       LCDsetLine(3);
-      fill_line1_fails();
-      LCDprintChar(line1);
+      output_fails();
       break;
-      case 3:// Fails.... values
+      case 3:// annex-overruns
       LCDsetLine(4);
-      fill_line2_fails_values();
-      LCDprintChar(line2);
+      output_annex();
       break;
 #ifdef DEBUG
       case 4:// debug
