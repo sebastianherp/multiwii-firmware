@@ -115,18 +115,9 @@ void computeIMU () {
 
 #define INV_GYR_CMPF_FACTOR   (1.0f / (GYR_CMPF_FACTOR  + 1.0f))
 #define INV_GYR_CMPFM_FACTOR  (1.0f / (GYR_CMPFM_FACTOR + 1.0f))
-#if GYRO
-  #define GYRO_SCALE ((2380 * PI)/((32767.0f / 4.0f ) * 180.0f * 1000000.0f)) //should be 2279.44 but 2380 gives better result
-  // +-2000/sec deg scale
-  //#define GYRO_SCALE ((200.0f * PI)/((32768.0f / 5.0f / 4.0f ) * 180.0f * 1000000.0f) * 1.5f)     
-  // +- 200/sec deg scale
-  // 1.5 is emperical, not sure what it means
-  // should be in rad/sec
-#else
-  #define GYRO_SCALE (1.0f/200e6f)
-  // empirical, depends on WMP on IDG datasheet, tied of deg/ms sensibility
-  // !!!!should be adjusted to the rad/sec
-#endif 
+
+
+
 // Small angle approximation
 #define ssin(val) (val)
 #define scos(val) 1.0f
@@ -187,7 +178,8 @@ void getEstimatedAttitude(){
   uint16_t currentT = micros();
   float scale, deltaGyroAngle[3];
 
-  scale = (currentT - previousT) * GYRO_SCALE;
+  scale = (currentT - previousT) * gyroScale;
+  debug[3] = gyroScale;
   previousT = currentT;
 
   // Initialization

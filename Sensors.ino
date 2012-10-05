@@ -1170,6 +1170,8 @@ void Device_Mag_getADC() {
 // ************************************************************************************************************
 #if defined(MPU6050)
 
+
+
 void Gyro_init() {
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
   i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x80);             //PWR_MGMT_1    -- DEVICE_RESET 1
@@ -1181,13 +1183,16 @@ void Gyro_init() {
   #if defined(MAG)
     i2c_writeReg(MPU6050_ADDRESS, 0x37, 0x02);           //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=1 ; CLKOUT_EN=0
   #endif
+
+  //      16.384 LSB/(deg/sec) *    deg2rad    * microseconds
+  gyroScale = (1.0f / 16.384f) * (PI / 180.0f / 1000000.0f);
 }
 
 void Gyro_getADC () {
   i2c_getSixRawADC(MPU6050_ADDRESS, 0x43);
-  GYRO_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])/4 , // range: +/- 8192; +/- 2000 deg/sec
-                    ((rawADC[2]<<8) | rawADC[3])/4 ,
-                    ((rawADC[4]<<8) | rawADC[5])/4 );
+  GYRO_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) , // range: +/- 32768; +/- 2000 deg/sec
+                    ((rawADC[2]<<8) | rawADC[3]) ,
+                    ((rawADC[4]<<8) | rawADC[5]) );
   GYRO_Common();
 }
 
@@ -1196,9 +1201,9 @@ void ACC_init () {
   //note: something seems to be wrong in the spec here. With AFS=2 1G = 4096 but according to my measurement: 1G=2048 (and 2048/8 = 256)
   //confirmed here: http://www.multiwii.com/forum/viewtopic.php?f=8&t=1080&start=10#p7480
   #if defined(FREEIMUv04)
-    acc_1G = 255;
+    acc_1G = 2047;
   #else
-    acc_1G = 512;
+    acc_1G = 4095;
   #endif
 
   #if defined(MPU6050_I2C_AUX_MASTER)
@@ -1215,9 +1220,9 @@ void ACC_init () {
 
 void ACC_getADC () {
   i2c_getSixRawADC(MPU6050_ADDRESS, 0x3B);
-  ACC_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])/8 ,
-                   ((rawADC[2]<<8) | rawADC[3])/8 ,
-                   ((rawADC[4]<<8) | rawADC[5])/8 );
+  ACC_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) , // range: +/- 32768; +/- 8 g
+                   ((rawADC[2]<<8) | rawADC[3]) ,
+                   ((rawADC[4]<<8) | rawADC[5]) );
   ACC_Common();
 }
 
@@ -1553,7 +1558,6 @@ void Sonar_update() {
 inline void Sonar_init() {}
 inline void Sonar_update() {}
 #endif
-
 
 
 void initSensors() {

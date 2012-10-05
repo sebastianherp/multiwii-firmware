@@ -150,6 +150,7 @@ static uint16_t acc_1G;             // this is the 1G measured acceleration
 static int16_t  acc_25deg;
 static int16_t  headFreeModeHold;
 static int16_t  gyroADC[3],accADC[3],accSmooth[3],magADC[3];
+static float    gyroScale = 0;
 static int16_t  heading,magHold;
 static uint8_t  vbat;               // battery voltage in 0.1V steps
 static uint8_t  rcOptions[CHECKBOXITEMS];
