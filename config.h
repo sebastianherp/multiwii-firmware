@@ -129,9 +129,9 @@
       //#define DESQUARED6DOFV2GO  // DEsquared V2 with ITG3200 only
       //#define DESQUARED6DOFV4    // DEsquared V4 with MPU6050
       //#define LADYBIRD
-      //#define MEGAWAP_V2_STD
+      //#define MEGAWAP_V2_STD     // available here: http://www.multircshop.com                    <- confirmed by Alex
       //#define MEGAWAP_V2_ADV
-	  //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085 
+      //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085 
 
       
     /***************************    independent sensors    ********************************/
@@ -174,7 +174,7 @@
       /* individual sensor orientation */
       //#define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
       //#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
-      //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  = X; magADC[PITCH]  = Y; magADC[YAW]  = Z;}
+      //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = Z;}
 
 /*************************************************************************************************/
 /*****************                                                                 ***************/
@@ -240,6 +240,7 @@
     #define WING_RIGHT_MAX 2000 // limit servo travel range must be inside [1020;2000]
 
   /***********************          Airplane                       ***********************/
+    //#define USE_THROTTLESERVO // For use of standard 50Hz servo on throttle.
     #define SERVO_RATES      {100, 100, 100, 100, 100, 100, 100, 100} // Rates in 0-100%
     #define SERVO_DIRECTION  { -1,   1,   1,   -1,  1,   1,   1,   1 } // Invert servos by setting -1
 
@@ -315,7 +316,7 @@
     /****************************    PPM Sum Reciver    ***********************************/
       /* The following lines apply only for specific receiver with only one PPM sum signal, on digital PIN 2
          Select the right line depending on your radio brand. Feel free to modify the order in your PPM order is different */
-      //#define SERIAL_SUM_PPM         THROTTLE,ROLL,PITCH,YAW,AUX1,AUX2,AUX3,AUX4,8,9,10,11 //For Graupner/Spektrum
+      //#define SERIAL_SUM_PPM         PITCH,YAW,THROTTLE,ROLL,AUX1,AUX2,AUX3,AUX4,8,9,10,11 //For Graupner/Spektrum
       //#define SERIAL_SUM_PPM         ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4,8,9,10,11 //For Robe/Hitec/Futaba
       //#define SERIAL_SUM_PPM         ROLL,PITCH,YAW,THROTTLE,AUX1,AUX2,AUX3,AUX4,8,9,10,11 //For Multiplex
       //#define SERIAL_SUM_PPM         PITCH,ROLL,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4,8,9,10,11 //For some Hitec/Sanwa/Others
@@ -331,6 +332,18 @@
       //#define SPEKTRUM 1024
       //#define SPEKTRUM 2048
       //#define SPEK_SERIAL_PORT 1    // Forced to 0 on Pro Mini and single serial boards; Set to your choice of 0, 1, or 2 on any Mega based board (defaults to 1 on Mega).
+      //**************************
+      // Defines that allow a "Bind" of a Spektrum or Compatible Remote Receiver (aka Satellite) via Configuration GUI.
+      //   Bind mode will be same as declared above, if your TX is capable.
+      //   Ground, Power, and Signal must come from three adjacent pins. 
+      //   By default, these are Ground=4, Power=5, Signal=6.  These pins are in a row on most MultiWii shield boards. Pins can be overriden below.  
+      //   Normally use 3.3V regulator is needed on the power pin!!  If your satellite hangs during bind (blinks, but won't complete bind with a solid light), go direct 5V on all pins. 
+      //**************************
+      //   For Pro Mini, the connector for the Satellite that resides on the FTDI can be unplugged and moved to these three adjacent pins. 
+      //#define SPEK_BIND             //Un-Comment for Spektrum Satellie Bind Support.  Code is ~420 bytes smaller without it. 
+      //#define SPEK_BIND_GROUND 4
+      //#define SPEK_BIND_POWER  5
+      //#define SPEK_BIND_DATA   6
 
     /*******************************    SBUS RECIVER    ************************************/
       /* The following line apply only for Futaba S-Bus Receiver on MEGA boards at RX1 only (Serial 1).
@@ -519,16 +532,16 @@
     //#define ACROTRAINER_MODE 200   // http://www.multiwii.com/forum/viewtopic.php?f=16&t=1944#p17437
 
 
-  /********                          Failsave settings                 ********************/
+  /********                          Failsafe settings                 ********************/
     /* Failsafe check pulses on four main control channels CH1-CH4. If the pulse is missing or bellow 985us (on any of these four channels) 
-       the failsafe procedure is initiated. After FAILSAVE_DELAY time from failsafe detection, the level mode is on (if ACC or nunchuk is avaliable),
-       PITCH, ROLL and YAW is centered and THROTTLE is set to FAILSAVE_THR0TTLE value. You must set this value to descending about 1m/s or so 
-       for best results. This value is depended from your configuration, AUW and some other params.  Next, afrer FAILSAVE_OFF_DELAY the copter is disarmed, 
-       and motors is stopped. If RC pulse coming back before reached FAILSAVE_OFF_DELAY time, after the small quard time the RC control is returned to normal. */
+       the failsafe procedure is initiated. After FAILSAFE_DELAY time from failsafe detection, the level mode is on (if ACC or nunchuk is avaliable),
+       PITCH, ROLL and YAW is centered and THROTTLE is set to FAILSAFE_THR0TTLE value. You must set this value to descending about 1m/s or so 
+       for best results. This value is depended from your configuration, AUW and some other params.  Next, afrer FAILSAFE_OFF_DELAY the copter is disarmed, 
+       and motors is stopped. If RC pulse coming back before reached FAILSAFE_OFF_DELAY time, after the small quard time the RC control is returned to normal. */
     //#define FAILSAFE                                // uncomment  to activate the failsafe function
-    #define FAILSAVE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
-    #define FAILSAVE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
-    #define FAILSAVE_THROTTLE  (MINTHROTTLE + 200)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
+    #define FAILSAFE_DELAY     10                     // Guard time for failsafe activation after signal lost. 1 step = 0.1sec - 1sec in example
+    #define FAILSAFE_OFF_DELAY 200                    // Time for Landing before motors stop in 0.1sec. 1 step = 0.1sec - 20sec in example
+    #define FAILSAFE_THROTTLE  (MINTHROTTLE + 200)    // Throttle level used for landing - may be relative to MINTHROTTLE - as in this case
 
 
   /*****************                DFRobot LED RING    *********************************/
@@ -744,12 +757,6 @@
        First page of the sequence gets loaded at startup to allow non-interactive display */
     //#define LCD_TELEMETRY_STEP "0123456789" // should contain a 0 to allow switching off. First page of sequence gets loaded upon startup
 
-
-    /* on telemetry page B (2) it gives a bar graph which shows how much voltage battery has left. Range from 0 to 12 Volt is not very informative
-       so we try do define a meaningful range. For a 3S battery we define full=12,6V and calculate how much it is above first warning level
-       Example: 12.6V - VBATLEVEL1_3S  (for me = 126 - 102 = 24) */
-    #define VBATREF 24
-
     /* if program gets too large (>32k), need to exclude some functionality
        uncomment to suppress some unwanted telemetry pages (only useful if telemetry is enabled) */
     //#define SUPPRESS_TELEMETRY_PAGE_1
@@ -779,9 +786,11 @@
        must be associated with #define BUZZER ! */
     //#define VBAT              // uncomment this line to activate the vbat code
     #define VBATSCALE     131 // change this value if readed Battery voltage is different than real voltage
+    #define VBATNOMINAL   126 // 12,6V full battery nominal voltage
     #define VBATLEVEL1_3S 107 // 10,7V
     #define VBATLEVEL2_3S 103 // 10,3V
     #define VBATLEVEL3_3S 99  // 9.9V
+    #define VBATLEVEL4_3S 93  // 9.3V - if vbat ever goes below this value, permanent alarm is triggered
     #define NO_VBAT       16 // Avoid beeping without any battery
 
 
@@ -791,47 +800,18 @@
 
     /* enable monitoring of the power consumption from battery (think of mAh)
        allows to set alarm value in GUI or via LCD
+      Full description and howto here http://www.multiwii.com/wiki/index.php?title=Powermeter
        Two options:
-       1 - soft: - (good results +-5% for plush and mystery ESCs @ 2S and 3S, not good with SuperSimple ESC
-            00. relies on your combo of battery type (Voltage, cpacity), ESC, ESC settings, motors, props and multiwii cycle time
-            01. set POWERMETER soft. Uses PLEVELSCALE = 50, PLEVELDIV = PLEVELDIVSOFT = 5000
-            0. output is a value that linearily scales to power (mAh)
-            1. get voltage reading right first
-            2. start with freshly charged battery
-            3. go fly your typical flight (routine and duration)
-            4. at end connect to GUI or LCD and read the power value; write it down (example 4711)
-            5. charge battery, write down amount of energy needed (example 722 mAh)
-            6. compute alarm value for desired power threshold (example 750 mAh : alarm = 4711 / 722 * 750)
-            7. set alarm value in GUI or LCD
-            8. enjoy your new battery alarm - possibly repeat steps 2 .. 7
-            9. if you want the numbers to represent your mAh value, you must change PLEVELDIV
-       2 - hard: - (uses hardware sensor, after configuration gives reasonable results
-            00. uses analog pin 2 to read voltage output from sensor.
-            01. set POWERMETER hard. Uses PLEVELSCALE = 50
-            02. install low path filter for 25 Hz to sensor input
-            03. check your average cycle time. If not close to 3ms, then you must change PLEVELDIV accordingly
-            1. compute PLEVELDIV for your sensor (see below for insturctions)
-            2. set PLEVELDIVSOFT to 5000 ( to use LOG_VALUES for individual motor comparison)
-            3. attach, set PSENSORNULL and  PINT2mA
-            4. configure, compile, upload, set alarm value in GUI or LCD
-            3. enjoy true readings of mAh consumed
-       set POWERMETER to "soft" (1) or "hard" (2) depending on sensor you want to utilize */
+       1 - hard: - (uses hardware sensor, after configuration gives very good results)
+       2 - soft: - (good results +-5% for plush and mystery ESCs @ 2S and 3S, not good with SuperSimple ESC)    */
     //#define POWERMETER_SOFT
     //#define POWERMETER_HARD
-    /* the sum of all powermeters ranges from [0:60000 e4] theoretically.
-       the alarm level from eeprom is out of [0:255], so we multipy alarm level with PLEVELSCALE and with 1e4 before comparing
-       PLEVELSCALE is the step size you can use to set alarm */
+    /* PLEVELSCALE is the step size you can use to set alarm */
     #define PLEVELSCALE 50 // if you change this value for other granularity, you must search for comments in code to change accordingly
     /* larger PLEVELDIV will get you smaller value for power (mAh equivalent) */
     #define PLEVELDIV 5000 // default for soft - if you lower PLEVELDIV, beware of overrun in uint32 pMeter
     #define PLEVELDIVSOFT PLEVELDIV // for soft always equal to PLEVELDIV; for hard set to 5000
-    //#define PLEVELDIV 1361L // to convert the sum into mAh divide by this value
-    /* amploc 25A sensor has 37mV/A
-       arduino analog resolution is 4.9mV per unit; units from [0..1023]
-       sampling rate 20ms, approx 19977 micro seconds
-       PLEVELDIV = 37 / 4.9  * 10e6 / 18000  * 3600 / 1000  = 1361L
-       set to analogRead() value for zero current */
-    #define PSENSORNULL 510 // for I=0A my sensor gives 1/2 Vss; that is approx 2.49Volt
+    #define PSENSORNULL 510 // set to analogRead() value for zero current; for I=0A my sensor gives 1/2 Vss; that is approx 2.49Volt; 
     #define PINT2mA 13 // for telemtry display: one integer step on arduino analog translates to mA (example 4.9 / 37 * 100
 
   /********************************************************************/
