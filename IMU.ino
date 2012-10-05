@@ -290,9 +290,9 @@ void getEstimatedAttitude(){
   #define USE_ACC_FOR_EARTH_ACC 1
   
 #if USE_ACC_FOR_EARTH_ACC == 1
-  axis = 1; int16_t acc_x = -ACC_VALUE;
-  axis = 0; int16_t acc_y = ACC_VALUE;
-  axis = 2; int16_t acc_z = ACC_VALUE;
+  axis = 1; int16_t acc_x = -accADC[axis];
+  axis = 0; int16_t acc_y = accADC[axis];
+  axis = 2; int16_t acc_z = accADC[axis];
 #else
   // use EstG values (doesn't lag, but needs time to settle after a rotation)
   int16_t acc_x = -EstG.V.Y;
