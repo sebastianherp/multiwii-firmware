@@ -383,3 +383,7 @@ static struct {
   static int16_t errorAngleI[2] = {0,0};
   static int16_t initialThrottleHold;
   static uint32_t timestamp_fixated = 0;
+  
+/* baro variables */
+static int32_t  BaroPressure;
+static int32_t  BaroTemperature;

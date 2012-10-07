@@ -144,9 +144,10 @@ void loop () {
 
   // read current values from GYRO, ACC & MAG
   getSensorData(); // 530 µs
-
+  
   #if BARO
-    Baro_update(); // 70 -> 170 -> 70 -> 1100 µs (MS561101BA)
+    Baro_update(); // 240 µs or 1170 µs (MS561101BA)
+    BaroAlt = (1.0f - pow(BaroPressure/101325.0f, 0.190295f)) * 4433000.0f; //centimeter (300 µs)
   #endif
 
   #if GPS
@@ -161,9 +162,7 @@ void loop () {
 
   // calculate attitude from sensor data
   #if ACC
-    timeDebug = micros();
     getEstimatedAttitude(); // around 1100 µs
-    debug[1] = (debug[1]*9 + (micros() - timeDebug)) / 10;
   #endif  
   #if BARO
     getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)

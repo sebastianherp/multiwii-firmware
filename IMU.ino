@@ -27,11 +27,11 @@ void getSensorData () {
     }
   #else
     // get gyro values
-    Gyro_getADC();
+    Gyro_getADC(); // 250 µs (MPU6050)
 
     // get accelerometer values
     #if ACC
-      ACC_getADC();
+      ACC_getADC(); // 250 µs (MPU6050)
     #endif
 
     // set some variables
@@ -44,8 +44,10 @@ void getSensorData () {
   #endif
   
   #if MAG
-    Mag_getADC(); // 12 µs
+    Mag_getADC(); // 12 µs (HMC5883)
   #endif
+  
+
   
   // smoothing of gyro values
   #if defined(GYRO_SMOOTHING)

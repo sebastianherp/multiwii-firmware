@@ -433,7 +433,6 @@ void ACC_Common() {
 
 #if defined(BMP085)
 #define BMP085_ADDRESS 0x77
-static int32_t  pressure;
 
 static struct {
   // sensor registers from the BOSCH BMP085 datasheet
@@ -507,6 +506,7 @@ void i2c_BMP085_Calculate() {
   x1 = ((int32_t)bmp085_ctx.ut.val - bmp085_ctx.ac6) * bmp085_ctx.ac5 >> 15;
   x2 = ((int32_t)bmp085_ctx.mc << 11) / (x1 + bmp085_ctx.md);
   b5 = x1 + x2;
+  BaroTemperature = ((b5 + 8) * 10) >> 4; // in 0.01 °C (same as MS561101BA temperature)
   // Pressure calculations
   b6 = b5 - 4000;
   x1 = (bmp085_ctx.b2 * (b6 * b6 >> 12)) >> 11; 
@@ -524,7 +524,7 @@ void i2c_BMP085_Calculate() {
   x1 = (p >> 8) * (p >> 8);
   x1 = (x1 * 3038) >> 16;
   x2 = (-7357 * p) >> 16;
-  pressure = p + ((x1 + x2 + 3791) >> 4);
+  BaroPressure = p + ((x1 + x2 + 3791) >> 4);
 }
 
 void Baro_update() {
@@ -547,7 +547,6 @@ void Baro_update() {
     case 3: 
       i2c_BMP085_UP_Read(); 
       i2c_BMP085_Calculate(); 
-      BaroAlt = (1.0f - pow(pressure/101325.0f, 0.190295f)) * 4433000.0f; //centimeter
       bmp085_ctx.state = 0; bmp085_ctx.deadline += 5000; 
       break;
   } 
@@ -575,7 +574,7 @@ void Baro_update() {
 #define MS561101BA_OSR_4096 0x08
 
 #define OSR MS561101BA_OSR_4096
-static int32_t  pressure;
+
 
 static struct {
   // sensor registers from the MS561101BA datasheet
@@ -646,20 +645,20 @@ void i2c_MS561101BA_UT_Read() {
 }
 
 void i2c_MS561101BA_Calculate() {
-  int32_t temperature,off2=0,sens2=0,delt;
+  int32_t off2=0,sens2=0,delt;
 
   int32_t dT   = ms561101ba_ctx.ut.val - ((uint32_t)ms561101ba_ctx.c[5] << 8);
   int64_t off  = ((uint32_t)ms561101ba_ctx.c[2] <<16) + (((int64_t)dT * ms561101ba_ctx.c[4]) >> 7);
   int64_t sens = ((uint32_t)ms561101ba_ctx.c[1] <<15) + (((int64_t)dT * ms561101ba_ctx.c[3]) >> 8);
-  temperature  = 2000 + (((int64_t)dT * ms561101ba_ctx.c[6])>>23);
+  BaroTemperature  = 2000 + (((int64_t)dT * ms561101ba_ctx.c[6])>>23);
 
-  if (temperature < 2000) { // temperature lower than 20st.C 
-    delt = temperature-2000;
+  if (BaroTemperature < 2000) { // temperature lower than 20st.C 
+    delt = BaroTemperature-2000;
     delt  = delt*delt;
     off2  = (5 * delt)>>1; 
     sens2 = (5 * delt)>>2; 
-    if (temperature < -1500) { // temperature lower than -15st.C
-      delt  = temperature+1500;
+    if (BaroTemperature < -1500) { // temperature lower than -15st.C
+      delt  = BaroTemperature+1500;
       delt  = delt*delt;
       off2  += 7 * delt; 
       sens2 += (11 * delt)>>1; 
@@ -667,7 +666,7 @@ void i2c_MS561101BA_Calculate() {
   } 
   off  -= off2; 
   sens -= sens2;
-  pressure     = (( (ms561101ba_ctx.up.val * sens ) >> 21) - off) >> 15;
+  BaroPressure     = (( (ms561101ba_ctx.up.val * sens ) >> 21) - off) >> 15;
 }
 
 void Baro_update() {
@@ -675,23 +674,20 @@ void Baro_update() {
   ms561101ba_ctx.deadline = currentTime;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, MS5611 is ok with this speed
   switch (ms561101ba_ctx.state) {
-    case 0: 
+    case 0:
       i2c_MS561101BA_UT_Start(); 
       ms561101ba_ctx.state++; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
       break;
     case 1: 
       i2c_MS561101BA_UT_Read(); 
-      ms561101ba_ctx.state++;
-      break;
-    case 2: 
       i2c_MS561101BA_UP_Start(); 
       ms561101ba_ctx.state++; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
       break;
-    case 3: 
+    case 2: 
       i2c_MS561101BA_UP_Read();
+      i2c_MS561101BA_UT_Start(); 
       i2c_MS561101BA_Calculate();
-      BaroAlt = (1.0f - pow(pressure/101325.0f, 0.190295f)) * 4433000.0f; //centimeter
-      ms561101ba_ctx.state = 0; ms561101ba_ctx.deadline += 4000;
+      ms561101ba_ctx.state = 1; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
       break;
   } 
 }
