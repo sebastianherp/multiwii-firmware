@@ -374,3 +374,13 @@ static struct {
     static uint8_t beep_toggle = 0,
                    beep_confirmation = 0;
   #endif
+  
+/* static variables from loop() */
+  static uint8_t rcDelayCommand; // this indicates the number of time (multiple of RC measurement at 50Hz) the sticks must be maintained to run or switch off motors
+  static int16_t lastGyro[3] = {0,0,0};
+  static int16_t delta1[3],delta2[3];
+  static int16_t errorGyroI[3] = {0,0,0};
+  static int16_t errorAngleI[2] = {0,0};
+  static uint32_t rcTime  = 0;
+  static int16_t initialThrottleHold;
+  static uint32_t timestamp_fixated = 0;
