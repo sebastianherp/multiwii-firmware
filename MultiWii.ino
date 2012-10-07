@@ -140,15 +140,14 @@ void loop () {
     handleBoxes();
   }
 
-  #if MAG
-    Mag_getADC(); // 12 µs
-  #endif
+  timeDebug = micros();
+  getSensorData(); // 530 µs
+  debug[0] = (debug[0]*9 + (micros() - timeDebug)) / 10;
+
   #if BARO
     Baro_update(); // 70 -> 170 -> 70 -> 1100 µs (MS561101BA)
   #endif
-  #if BARO
-    getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)
-  #endif
+
   #if GPS
     if(GPS_Enable) GPS_NewData();
   #endif
@@ -159,12 +158,16 @@ void loop () {
     auto_switch_landing_lights();
   #endif
 
- 
-  computeIMU(); // 1600 - 1800 µs
   // calculate attitude from sensor data
   #if ACC
-    getEstimatedAttitude();
+    timeDebug = micros();
+    getEstimatedAttitude(); // around 1100 µs
+    debug[1] = (debug[1]*9 + (micros() - timeDebug)) / 10;
   #endif  
+  #if BARO
+    getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)
+  #endif
+  
   annexCode(); // 500 - 1700 µs
   
   // Measure loop rate just afer reading the sensors

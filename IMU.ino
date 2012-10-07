@@ -1,5 +1,5 @@
 
-void computeIMU () {
+void getSensorData () {
   uint8_t axis;
   static int16_t gyroADCprevious[3] = {0,0,0};
   int16_t gyroADCp[3];
@@ -41,6 +41,10 @@ void computeIMU () {
       if (!ACC) accADC[axis]=0;
     }
 
+  #endif
+  
+  #if MAG
+    Mag_getADC(); // 12 µs
   #endif
   
   // smoothing of gyro values
