@@ -667,6 +667,8 @@ void loop () {
   }
  
   computeIMU();
+  annexCode();
+  
   // Measure loop rate just afer reading the sensors
   currentTime = micros();
   cycleTime = currentTime - previousTime;

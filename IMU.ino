@@ -10,7 +10,6 @@ void computeIMU () {
   //gyro+nunchuk: we must wait for a quite high delay betwwen 2 reads to get both WM+ and Nunchuk data. It works with 3ms
   //gyro only: the delay to read 2 consecutive values can be reduced to only 0.65ms
   #if defined(NUNCHUCK)
-    annexCode();
     while((micros()-timeInterleave)<INTERLEAVING_DELAY) ; //interleaving delay between 2 consecutive reads
     timeInterleave=micros();
     ACC_getADC();
@@ -38,7 +37,7 @@ void computeIMU () {
     // set some variables
     // TODO: get rid of it
     for (axis = 0; axis < 3; axis++) {
-      gyroData = gyroADC;
+      gyroData[axis] = gyroADC[axis];
       if (!ACC) accADC[axis]=0;
     }
 
@@ -47,10 +46,9 @@ void computeIMU () {
       getEstimatedAttitude();
     #endif
 
-    // do whatever else needs to be done and don't ask why this is done in computeIMU()
-    annexCode();
   #endif
   
+  // smoothing of gyro values
   #if defined(GYRO_SMOOTHING)
     static int16_t gyroSmooth[3] = {0,0,0};
     for (axis = 0; axis < 3; axis++) {
