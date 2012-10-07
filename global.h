@@ -381,6 +381,5 @@ static struct {
   static int16_t delta1[3],delta2[3];
   static int16_t errorGyroI[3] = {0,0,0};
   static int16_t errorAngleI[2] = {0,0};
-  static uint32_t rcTime  = 0;
   static int16_t initialThrottleHold;
   static uint32_t timestamp_fixated = 0;

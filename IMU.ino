@@ -13,7 +13,7 @@ void computeIMU () {
     while((micros()-timeInterleave)<INTERLEAVING_DELAY) ; //interleaving delay between 2 consecutive reads
     timeInterleave=micros();
     ACC_getADC();
-    getEstimatedAttitude(); // computation time must last less than one interleaving delay
+    //getEstimatedAttitude(); // computation time must last less than one interleaving delay
     while((micros()-timeInterleave)<INTERLEAVING_DELAY) ; //interleaving delay between 2 consecutive reads
     timeInterleave=micros();
     f.NUNCHUKDATA = 1;
@@ -40,11 +40,6 @@ void computeIMU () {
       gyroData[axis] = gyroADC[axis];
       if (!ACC) accADC[axis]=0;
     }
-
-    // calculate attitude from sensor data
-    #if ACC
-      getEstimatedAttitude();
-    #endif
 
   #endif
   

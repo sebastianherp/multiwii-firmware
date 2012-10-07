@@ -116,6 +116,7 @@ void loop () {
   int16_t delta,deltaSum;
   int16_t PTerm,ITerm,PTermACC,ITermACC,PTermGYRO,ITermGYRO,DTerm;
   uint32_t timeDebug = 0;
+  static uint32_t rcTime  = 0;
 
   #if defined(SPEKTRUM)
     if (spekFrameFlags == 0x01) readSpektrum();
@@ -127,51 +128,43 @@ void loop () {
 
   #define RC_FREQ 50
 
+  // debug timing code (use to track how long things take to compute)
+  //timeDebug = micros();
+  //debug[0] = micros() - timeDebug;
+
+  // whole thing takes 130-170 µs
   if (currentTime > rcTime ) { // 50Hz
-    // runs in 130-170 µs
-    timeDebug = micros();
-    rcTime = currentTime + 20000;
+    rcTime += 20000;
     computeRC();
     handleRC();
     handleBoxes();
-    debug[0] = micros() - timeDebug;
-    
-
-  } else { // not in rc loop
-    static uint8_t taskOrder=0; // never call all functions in the same loop, to avoid high delay spikes
-    switch (taskOrder++ % 5) {
-      case 0:
-        #if MAG
-          Mag_getADC(); // 12 µs
-        #endif
-        break;
-      case 1:
-        #if BARO
-          Baro_update(); // 70 -> 170 -> 70 -> 1100 µs (MS561101BA)
-        #endif
-        break;
-      case 2:
-        #if BARO
-          getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)
-        #endif
-        break;
-      case 3:
-        #if GPS
-          if(GPS_Enable) GPS_NewData();
-        #endif
-        break;
-      case 4:
-        #if SONAR
-          Sonar_update();debug[2] = sonarAlt;
-        #endif
-        #ifdef LANDING_LIGHTS_DDR
-          auto_switch_landing_lights();
-        #endif
-        break;
-    }
   }
+
+  #if MAG
+    Mag_getADC(); // 12 µs
+  #endif
+  #if BARO
+    Baro_update(); // 70 -> 170 -> 70 -> 1100 µs (MS561101BA)
+  #endif
+  #if BARO
+    getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)
+  #endif
+  #if GPS
+    if(GPS_Enable) GPS_NewData();
+  #endif
+  #if SONAR
+    Sonar_update();debug[2] = sonarAlt;
+  #endif
+  #ifdef LANDING_LIGHTS_DDR
+    auto_switch_landing_lights();
+  #endif
+
  
   computeIMU(); // 1600 - 1800 µs
+  // calculate attitude from sensor data
+  #if ACC
+    getEstimatedAttitude();
+  #endif  
   annexCode(); // 500 - 1700 µs
   
   // Measure loop rate just afer reading the sensors
