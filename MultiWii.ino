@@ -129,20 +129,21 @@ void loop () {
   #define RC_FREQ 50
 
   // debug timing code (use to track how long things take to compute)
-  //timeDebug = micros();
-  //debug[0] = micros() - timeDebug;
+  // timeDebug = micros();
+  // debug[0] = micros() - timeDebug;
+  // debug[0] = (debug[0]*9 + (micros() - timeDebug)) / 10;
 
+  
   // whole thing takes 130-170 µs
-  if (currentTime > rcTime ) { // 50Hz
-    rcTime += 20000;
-    computeRC();
-    handleRC();
-    handleBoxes();
+  if (currentTime > rcTime ) {
+    rcTime += 20000;  // 50 Hz (was "20 ms from now")
+    computeRC();      // stick positions, etc
+    handleRC();       // handle stick positions
+    handleBoxes();    // handle AUX switches
   }
 
-  timeDebug = micros();
+  // read current values from GYRO, ACC & MAG
   getSensorData(); // 530 µs
-  debug[0] = (debug[0]*9 + (micros() - timeDebug)) / 10;
 
   #if BARO
     Baro_update(); // 70 -> 170 -> 70 -> 1100 µs (MS561101BA)
