@@ -27,33 +27,30 @@ void computeIMU () {
       gyroADCprevious[axis] = gyroADC[axis];
     }
   #else
+    // get gyro values
+    Gyro_getADC();
+
+    // get accelerometer values
     #if ACC
       ACC_getADC();
-      getEstimatedAttitude();
     #endif
-    #if GYRO
-      Gyro_getADC();
-    #endif
-    for (axis = 0; axis < 3; axis++)
-      gyroADCp[axis] =  gyroADC[axis];
-    timeInterleave=micros();
-    annexCode();
-    if ((micros()-timeInterleave)>650) {
-       annex650_overrun_count++;
-    } else {
-       while((micros()-timeInterleave)<650) ; //empirical, interleaving delay between 2 consecutive reads
-    }
-    #if GYRO
-      Gyro_getADC();
-    #endif
+
+    // set some variables
+    // TODO: get rid of it
     for (axis = 0; axis < 3; axis++) {
-      gyroADCinter[axis] =  gyroADC[axis]+gyroADCp[axis];
-      // empirical, we take a weighted value of the current and the previous values
-      gyroData[axis] = (gyroADCinter[axis]+gyroADCprevious[axis])/3;
-      gyroADCprevious[axis] = gyroADCinter[axis]/2;
+      gyroData = gyroADC;
       if (!ACC) accADC[axis]=0;
     }
+
+    // calculate attitude from sensor data
+    #if ACC
+      getEstimatedAttitude();
+    #endif
+
+    // do whatever else needs to be done and don't ask why this is done in computeIMU()
+    annexCode();
   #endif
+  
   #if defined(GYRO_SMOOTHING)
     static int16_t gyroSmooth[3] = {0,0,0};
     for (axis = 0; axis < 3; axis++) {
