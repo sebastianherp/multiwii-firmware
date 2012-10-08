@@ -1078,6 +1078,7 @@
 
 #if defined(BMP085) || defined(MS561101BA)
   #define BARO 1
+  #define BARO_TAB_SIZE   21  
 #else
   #define BARO 0
 #endif

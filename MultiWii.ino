@@ -394,6 +394,12 @@ static struct {
                    notification_confirmation = 0;
   #endif
 
+#if BARO
+  static int32_t BaroPressure;
+  static int32_t BaroTemperature;
+  static int32_t BaroPressureSum;  
+#endif
+
 
 void annexCode() { // this code is excetuted at each loop and won't interfere with control loop if it lasts less than 650 microseconds
   static uint32_t calibratedAccTime;
@@ -1011,40 +1017,35 @@ void loop () {
     #ifdef FIXEDWING 
       f.HEADFREE_MODE = 0;
     #endif
-  } else { // not in rc loop
-    static uint8_t taskOrder=0; // never call all functions in the same loop, to avoid high delay spikes
-    switch (taskOrder++ % 5) {
-      case 0:
-        #if MAG
-          Mag_getADC();
-        #endif
-        break;
-      case 1:
-        #if BARO
-          Baro_update();
-        #endif
-        break;
-      case 2:
-        #if BARO
-          getEstimatedAltitude();
-        #endif
-        break;
-      case 3:
-        #if GPS
-          if(GPS_Enable) GPS_NewData();
-        #endif
-        break;
-      case 4:
-        #if SONAR
-          Sonar_update();debug[2] = sonarAlt;
-        #endif
-        #ifdef LANDING_LIGHTS_DDR
-          auto_switch_landing_lights();
-        #endif
-        break;
-    }
   }
- 
+
+  #if MAG
+    Mag_getADC();
+  #endif
+
+
+  #if BARO
+    Baro_update();
+    static uint32_t baroTime  = 0;
+    if( currentTime > baroTime ) {
+      baroTime += 25000;      // 40 Hz
+      getEstimatedAltitude(); // 280 µs to calculate altitude (EstAlt) from pressure and 380 µs for a new BaroPID-value
+    }    
+  #endif
+  
+  #if GPS
+    // seems to only take significant time when new data is available (not tested yet)
+    if(GPS_Enable) GPS_NewData();
+  #endif
+  
+  #if SONAR
+    // not tested at all
+    Sonar_update();debug[2] = sonarAlt;
+  #endif
+  #ifdef LANDING_LIGHTS_DDR
+    auto_switch_landing_lights();
+  #endif
+  
   computeIMU();
   // Measure loop rate just afer reading the sensors
   currentTime = micros();

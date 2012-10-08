@@ -268,9 +268,7 @@ void getEstimatedAttitude(){
   #endif
 }
 
-#define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
-#define INIT_DELAY      4000000  // 4 sec initialization delay
-#define BARO_TAB_SIZE   21
+#define INIT_DELAY      10000000  // 10 sec initialization delay
 
 #define ACC_Z_DEADBAND (acc_1G/50)
 
@@ -285,30 +283,36 @@ void getEstimatedAttitude(){
 
 void getEstimatedAltitude(){
   static uint32_t deadLine = INIT_DELAY;
-
-  static int16_t baroHistTab[BARO_TAB_SIZE];
-  static int8_t baroHistIdx;
-  static int32_t baroHigh;
+  static float BaroGroundPressure = 0;
   
- 
-  if (abs(currentTime - deadLine) < UPDATE_INTERVAL) return;
+  if(BaroGroundPressure == 0 && currentTime > 10000000) { // 10 seconds delay
+    BaroGroundPressure = BaroPressureSum/(float)(BARO_TAB_SIZE - 1);
+  }
+
   uint16_t dTime = currentTime - deadLine;
   deadLine = currentTime;
   
+  // calculate altitude from pressure
+  // old way
+  //BaroAlt = (1.0f - pow((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101325.0f, 0.190295f)) * 4433000.0f; //centimeter (300 µs)
+  // some other way, but it is slower
+  //BaroAlt = (4433080.0f - 494654.0f * pow((BaroPressureSum/(float)(BARO_TAB_SIZE - 1)), 0.1902632f));
+  // assuming everything is standard (pressure at sea level 1013.3 and 15°C, a lot faster
+  //BaroAlt = log((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101330.0f) / -0.012f * 10000;
 
-  //**** Alt. Set Point stabilization PID ****
-  baroHistTab[baroHistIdx] = BaroAlt/10;
-  baroHigh += baroHistTab[baroHistIdx];
-  baroHigh -= baroHistTab[(baroHistIdx + 1)%BARO_TAB_SIZE];
-  
-  baroHistIdx++;
-  if (baroHistIdx == BARO_TAB_SIZE) baroHistIdx = 0;
+  if(BaroGroundPressure != 0) {
+    // pressure relative to ground pressure with temperature compensation (fast!)
+    // see: https://code.google.com/p/ardupilot-mega/source/browse/libraries/AP_Baro/AP_Baro.cpp
+    BaroAlt = log( BaroGroundPressure / (BaroPressureSum/(float)(BARO_TAB_SIZE - 1)) ) * (BaroTemperature+27315) * 29.271267f;  
+  } else {
+    BaroAlt = log((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101330.0f) / -0.012f * 10000;
+  }
 
-
-  //EstAlt = baroHigh*10/(BARO_TAB_SIZE-1);
-  EstAlt = EstAlt*0.6f + (baroHigh*10.0f/(BARO_TAB_SIZE - 1))*0.4f; // additional LPF to reduce baro noise
+  //EstAlt = EstAlt*0.6f + (baroHigh*10.0f/(BARO_TAB_SIZE - 1))*0.4f; // additional LPF to reduce baro noise
+  EstAlt = (EstAlt * 5 + BaroAlt * 3) >> 3; // additional LPF to reduce baro noise (faster by 30 µs)
   
   #ifndef SUPPRESS_BARO_ALTHOLD
+  //**** Alt. Set Point stabilization PID ****
 
   //P
   int16_t error = constrain(AltHold - EstAlt, -300, 300);
