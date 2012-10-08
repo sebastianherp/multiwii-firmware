@@ -159,6 +159,7 @@ static int32_t  EstAlt;             // in cm
 static int16_t  BaroPID = 0;
 static int32_t  AltHold;
 static int16_t  errorAltitudeI = 0;
+static int16_t  vario = 0;              // variometer in cm/s
 #if defined(BUZZER)
   static uint8_t  toggleBeep = 0;
 #endif
@@ -389,8 +390,8 @@ static struct {
   static uint8_t nav_mode = NAV_MODE_NONE;            //Navigation mode
 
   #if defined(BUZZER)  
-    static uint8_t beep_toggle = 0,
-                   beep_confirmation = 0;
+    static uint8_t notification_toggle = 0,
+                   notification_confirmation = 0;
   #endif
 
 
@@ -605,6 +606,9 @@ void setup() {
   readEEPROM();                                    // load current setting data
   blinkLED(2,40,global_conf.currentSet+1);          
   configureReceiver();
+  #if defined (PILOTLAMP) 
+    PL_INIT;
+  #endif
   #if defined(OPENLRSv2MULTI)
     initOpenLRS();
   #endif
@@ -769,9 +773,9 @@ void loop () {
               AccInflightCalibrationArmed = !AccInflightCalibrationArmed; 
               #if defined(BUZZER)
               if (AccInflightCalibrationArmed){
-                beep_toggle = 2;
+                notification_toggle = 2;
               } else {
-                beep_toggle = 3;
+                notification_toggle = 3;
               }
               #endif
             }
