@@ -282,10 +282,10 @@ void getEstimatedAttitude(){
   }
 
 void getEstimatedAltitude(){
-  static uint32_t deadLine = INIT_DELAY;
+  static uint32_t deadLine = 0;
   static float BaroGroundPressure = 0;
   
-  if(BaroGroundPressure == 0 && currentTime > 10000000) { // 10 seconds delay
+  if(BaroGroundPressure == 0 && currentTime > INIT_DELAY) { // 10 seconds delay
     BaroGroundPressure = BaroPressureSum/(float)(BARO_TAB_SIZE - 1);
   }
 
@@ -305,7 +305,7 @@ void getEstimatedAltitude(){
     // see: https://code.google.com/p/ardupilot-mega/source/browse/libraries/AP_Baro/AP_Baro.cpp
     BaroAlt = log( BaroGroundPressure / (BaroPressureSum/(float)(BARO_TAB_SIZE - 1)) ) * (BaroTemperature+27315) * 29.271267f;  
   } else {
-    BaroAlt = log((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101330.0f) / -0.012f * 10000;
+    BaroAlt = 0;
   }
 
   //EstAlt = EstAlt*0.6f + (baroHigh*10.0f/(BARO_TAB_SIZE - 1))*0.4f; // additional LPF to reduce baro noise
