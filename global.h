@@ -385,5 +385,9 @@ static struct {
   static uint32_t timestamp_fixated = 0;
   
 /* baro variables */
+#define BARO_TAB_SIZE   21
 static int32_t  BaroPressure;
 static int32_t  BaroTemperature;
+static int32_t BaroPressureSum;
+
+

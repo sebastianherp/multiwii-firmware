@@ -316,9 +316,6 @@ void getEstimatedAttitude(){
   
 }
 
-#define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
-#define INIT_DELAY      4000000  // 4 sec initialization delay
-#define BARO_TAB_SIZE   21
 
 #define ACC_Z_DEADBAND (acc_1G/50)
 
@@ -331,32 +328,23 @@ void getEstimatedAttitude(){
     value += deadband;                  \
   }
 
-void getEstimatedAltitude(){
-  static uint32_t deadLine = INIT_DELAY;
 
-  static int16_t baroHistTab[BARO_TAB_SIZE];
-  static int8_t baroHistIdx;
-  static int32_t baroHigh;
-  
- 
-  if (abs(currentTime - deadLine) < UPDATE_INTERVAL) return;
+void getEstimatedAltitude(){
+  static uint32_t deadLine = 0;
+
   uint16_t dTime = currentTime - deadLine;
   deadLine = currentTime;
-  
 
-  //**** Alt. Set Point stabilization PID ****
-  baroHistTab[baroHistIdx] = BaroAlt/10;
-  baroHigh += baroHistTab[baroHistIdx];
-  baroHigh -= baroHistTab[(baroHistIdx + 1)%BARO_TAB_SIZE];
-  
-  baroHistIdx++;
-  if (baroHistIdx == BARO_TAB_SIZE) baroHistIdx = 0;
+  // calculate altitude from pressure  
+  BaroAlt = (1.0f - pow((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101325.0f, 0.190295f)) * 4433000.0f; //centimeter (300 µs)
 
+  //EstAlt = EstAlt*0.6f + BaroAlt*0.4f; // additional LPF to reduce baro noise
+  EstAlt = (EstAlt * 5 + BaroAlt * 3) >> 3; // additional LPF to reduce baro noise (faster by 30 µs)
 
-  //EstAlt = baroHigh*10/(BARO_TAB_SIZE-1);
-  EstAlt = EstAlt*0.6f + (baroHigh*10.0f/(BARO_TAB_SIZE - 1))*0.4f; // additional LPF to reduce baro noise
+return;
   
   #ifndef SUPPRESS_BARO_ALTHOLD
+  //**** Alt. Set Point stabilization PID ****
 
   //P
   int16_t error = constrain(AltHold - EstAlt, -300, 300);

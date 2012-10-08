@@ -546,10 +546,11 @@ void Baro_update() {
       break;
     case 3: 
       i2c_BMP085_UP_Read(); 
-      i2c_BMP085_Calculate(); 
+      i2c_BMP085_Calculate();
+      Baro_Common();
       bmp085_ctx.state = 0; bmp085_ctx.deadline += 5000; 
       break;
-  } 
+  }
 }
 #endif
 
@@ -687,11 +688,24 @@ void Baro_update() {
       i2c_MS561101BA_UP_Read();
       i2c_MS561101BA_UT_Start(); 
       i2c_MS561101BA_Calculate();
+      Baro_Common();
       ms561101ba_ctx.state = 1; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
       break;
-  } 
+  }
 }
 #endif
+
+
+void Baro_Common() {
+  static int32_t baroHistTab[BARO_TAB_SIZE];
+  static int8_t baroHistIdx;
+
+  uint8_t indexplus1 = (baroHistIdx + 1)%BARO_TAB_SIZE;
+  baroHistTab[baroHistIdx] = BaroPressure;
+  BaroPressureSum += baroHistTab[baroHistIdx];
+  BaroPressureSum -= baroHistTab[indexplus1];
+  baroHistIdx = indexplus1;  
+}
 
 // ************************************************************************************************************
 // I2C Accelerometer MMA7455 

@@ -109,6 +109,8 @@ void setup() {
   debugmsg_append_str("initialization completed\n");
 }
 
+
+
 // ******** Main Loop *********
 void loop () {
   uint8_t axis,i;
@@ -116,7 +118,8 @@ void loop () {
   int16_t delta,deltaSum;
   int16_t PTerm,ITerm,PTermACC,ITermACC,PTermGYRO,ITermGYRO,DTerm;
   uint32_t timeDebug = 0;
-  static uint32_t rcTime  = 0;
+      
+
 
   #if defined(SPEKTRUM)
     if (spekFrameFlags == 0x01) readSpektrum();
@@ -126,8 +129,6 @@ void loop () {
     Read_OpenLRS_RC();
   #endif 
 
-  #define RC_FREQ 50
-
   // debug timing code (use to track how long things take to compute)
   // timeDebug = micros();
   // debug[0] = micros() - timeDebug;
@@ -135,7 +136,8 @@ void loop () {
 
   
   // whole thing takes 130-170 µs
-  if (currentTime > rcTime ) {
+  static uint32_t rcTime  = 0;
+  if ( currentTime > rcTime ) {
     rcTime += 20000;  // 50 Hz (was "20 ms from now")
     computeRC();      // stick positions, etc
     handleRC();       // handle stick positions
@@ -147,26 +149,36 @@ void loop () {
   
   #if BARO
     Baro_update(); // 240 µs or 1170 µs (MS561101BA)
-    BaroAlt = (1.0f - pow(BaroPressure/101325.0f, 0.190295f)) * 4433000.0f; //centimeter (300 µs)
+    static uint32_t baroTime  = 0;
+    if( currentTime > baroTime ) {
+      baroTime += 25000;      // 40 Hz
+      timeDebug = micros();
+      getEstimatedAltitude(); // 400 µs to calculate altitude (EstAlt) from pressure and 380 µs for a new BaroPID-value
+      debug[3] = (debug[3]*9 + (micros() - timeDebug)) / 10;
+    }
   #endif
 
   #if GPS
-    if(GPS_Enable) GPS_NewData();
+    static uint32_t gpsTime  = 0;
+    if(GPS_Enable && currentTime > gpsTime) {
+      gpsTime += 50000;  // 20 Hz ... fast enough to catch every 10 Hz GPS signal?
+                         // need to test this, probably not a big impact when executed in every loop
+      GPS_NewData();     // get new GPS data ;-)
+    }
   #endif
+  
   #if SONAR
-    Sonar_update();debug[2] = sonarAlt;
+    Sonar_update();debug[2] = sonarAlt; // move all those sensor updates to getSensorData?
   #endif
+  
   #ifdef LANDING_LIGHTS_DDR
-    auto_switch_landing_lights();
+    auto_switch_landing_lights(); // move to annexCode?
   #endif
 
   // calculate attitude from sensor data
   #if ACC
     getEstimatedAttitude(); // around 1100 µs
   #endif  
-  #if BARO
-    getEstimatedAltitude(); // around 550 µs when not immediatly returning (25 Hz "timer" in function)
-  #endif
   
   annexCode(); // 500 - 1700 µs
   
