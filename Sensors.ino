@@ -546,7 +546,7 @@ uint8_t Baro_update() { // first UT conversion is started in init procedure
     i2c_BMP085_Calculate(); 
     bmp085_ctx.state = 0; 
   } 
-  return bmp085_ctx.state;
+  return 1;
 }
 #endif
 
@@ -684,6 +684,7 @@ uint8_t Baro_update() { // first UT conversion is started in init procedure
     i2c_MS561101BA_Calculate();
     ms561101ba_ctx.state = 0; 
   }  
+  return 1;
 }
 #endif
 
