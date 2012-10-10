@@ -528,8 +528,8 @@ void i2c_BMP085_Calculate() {
   BaroPressure = p + ((x1 + x2 + 3791) >> 4);
 }
 
-void Baro_update() {
-  if (currentTime < bmp085_ctx.deadline) return; 
+uint8_t Baro_update() {
+  if (currentTime < bmp085_ctx.deadline) return 0; 
   bmp085_ctx.deadline = currentTime;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, BMP085 is ok with this speed
   switch (bmp085_ctx.state) {
@@ -548,7 +548,8 @@ void Baro_update() {
       Baro_Common();
       bmp085_ctx.state = 1; bmp085_ctx.deadline += 4600; 
       break;
-  } 
+  }
+  return bmp085_ctx.state;
 }
 #endif
 
@@ -668,8 +669,8 @@ void i2c_MS561101BA_Calculate() {
   BaroPressure     = (( (ms561101ba_ctx.up.val * sens ) >> 21) - off) >> 15;
 }
 
-void Baro_update() {
-  if (currentTime < ms561101ba_ctx.deadline) return; 
+uint8_t Baro_update() {
+  if (currentTime < ms561101ba_ctx.deadline) return 0; 
   ms561101ba_ctx.deadline = currentTime;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, MS5611 is ok with this speed
   switch (ms561101ba_ctx.state) {
@@ -687,9 +688,10 @@ void Baro_update() {
       i2c_MS561101BA_UT_Start(); 
       i2c_MS561101BA_Calculate();
       Baro_Common();
-      ms561101ba_ctx.state = 0; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
+      ms561101ba_ctx.state = 1; ms561101ba_ctx.deadline += 10000; //according to the specs, the pause should be at least 8.22ms
       break;
-  } 
+  }
+  return ms561101ba_ctx.state;
 }
 #endif
 

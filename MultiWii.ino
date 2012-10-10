@@ -13,7 +13,6 @@ July  2012     V2.1
 #include "config.h"
 #include "def.h"
 
-
 #include <avr/pgmspace.h>
 #define  VERSION  211
 
@@ -142,7 +141,7 @@ const char pidnames[] PROGMEM =
 ;
 
 static uint32_t currentTime = 0;
-static uint16_t previousTime = 0;
+static uint32_t previousTime = 0;
 static uint16_t cycleTime = 0;     // this is the number in micro second to achieve a full loop, it can differ a little and is taken into account in the PID loop
 static uint16_t calibratingA = 0;  // the calibration is done in the main loop. Calibrating decreases at each cycle down to 0, then we enter in a normal mode.
 static uint16_t calibratingG;
@@ -707,7 +706,7 @@ void loop () {
   #define RC_FREQ 50
 
   if (currentTime > rcTime ) { // 50Hz
-    rcTime = currentTime + 20000;
+    rcTime += 20000;
     computeRC();
     // Failsafe routine - added by MIS
     #if defined(FAILSAFE)
@@ -1017,34 +1016,51 @@ void loop () {
     #ifdef FIXEDWING 
       f.HEADFREE_MODE = 0;
     #endif
-  }
-
-  #if MAG
-    Mag_getADC();
-  #endif
-
-
-  #if BARO
-    Baro_update();
+  } else { // not in rc loop
+    static uint8_t taskOrder=0; // never call all functions in the same loop, to avoid high delay spikes
     static uint32_t baroTime  = 0;
-    if( currentTime > baroTime ) {
-      baroTime += 25000;      // 40 Hz
-      getEstimatedAltitude(); // 280 µs to calculate altitude (EstAlt) from pressure and 380 µs for a new BaroPID-value
-    }    
-  #endif
-  
-  #if GPS
-    // seems to only take significant time when new data is available (not tested yet)
-    if(GPS_Enable) GPS_NewData();
-  #endif
-  
-  #if SONAR
-    // not tested at all
-    Sonar_update();debug[2] = sonarAlt;
-  #endif
-  #ifdef LANDING_LIGHTS_DDR
-    auto_switch_landing_lights();
-  #endif
+    switch (taskOrder % 4) {
+      case 0:
+        taskOrder++;
+        #if MAG
+          static uint32_t magTime  = 0;
+          if( currentTime > magTime ) {
+            magTime += 66666;   // 15 Hz (HMC5883 isn't setup faster)
+            Mag_getADC();       // avg 21 µs, max 350 µs (HMC5883)
+            break;              // only break when we actually did something            
+          }
+        #endif
+      case 1:
+        taskOrder++;
+        #if BARO
+        static uint32_t baroTime  = 0;
+        if( currentTime > baroTime ) {
+          baroTime += 100000;      // 10 Hz
+          getEstimatedAltitude(); // ~280 µs to calculate altitude (EstAlt) from pressure, 650 µs for the whole function
+          break;                  // only break when we actually did something
+        } else if( Baro_update() != 0 ) {
+          break;                  // only break when we actually did something
+        }
+        #endif
+      case 2:
+        taskOrder++;
+        #if GPS
+          if(GPS_Enable) {
+            GPS_NewData();        // averages 240 µs, max 2400 µs (10 Hz serial GPS, r1172)
+            break;                // only break when we actually did something
+          }
+        #endif
+      default:
+        taskOrder++;        
+        #if SONAR
+          Sonar_update();debug[2] = sonarAlt;
+        #endif
+        #ifdef LANDING_LIGHTS_DDR
+          auto_switch_landing_lights();
+        #endif
+        break;
+    }
+  }
   
   computeIMU();
   // Measure loop rate just afer reading the sensors
