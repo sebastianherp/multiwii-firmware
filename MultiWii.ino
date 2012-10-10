@@ -1026,7 +1026,7 @@ void loop () {
         #if BARO
         static uint32_t baroTime  = 0;
         if( currentTime > baroTime ) {
-          baroTime += 100000;      // 10 Hz
+          baroTime += 25000;      // 40 Hz
           getEstimatedAltitude(); // ~280 µs to calculate altitude (EstAlt) from pressure, 650 µs for the whole function
           break;                  // only break when we actually did something
         } else if( Baro_update() != 0 ) {
