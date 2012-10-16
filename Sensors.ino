@@ -289,7 +289,7 @@ void GYRO_Common() {
         gyroZero[axis]=g[axis]/400;
         blinkLED(10,15,1);
       #if defined(BUZZER)
-        notification_confirmation = 4;
+        alarmArray[7] = 4;
       #endif
       }
     }
@@ -380,7 +380,7 @@ void ACC_Common() {
           AccInflightCalibrationActive = 0;
           AccInflightCalibrationMeasurementDone = 1;
           #if defined(BUZZER)
-            notification_confirmation = 1;      //buzzer for indicatiing the end of calibration
+            alarmArray[7] = 1;      //buzzer for indicatiing the end of calibration
           #endif
           // recover saved values to maintain current flight behavior until new values are transferred
           global_conf.accZero[ROLL]  = accZero_saved[ROLL] ;
@@ -1074,7 +1074,7 @@ uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
     magInit = 1;
   }
   
-  #if not defined(MPU6050_I2C_AUX_MASTER)
+  #if !defined(MPU6050_I2C_AUX_MASTER)
     void Device_Mag_getADC() {
       i2c_getSixRawADC(MAG_ADDRESS,MAG_DATA_REGISTER);
       MAG_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) ,          
@@ -1140,7 +1140,7 @@ void getADC() {
   #endif
 }
 
-#if not defined(MPU6050_I2C_AUX_MASTER)
+#if !defined(MPU6050_I2C_AUX_MASTER)
 void Device_Mag_getADC() {
   getADC();
 }
@@ -1461,7 +1461,7 @@ void i2c_srf08_change_addr(int8_t current, int8_t moveto) {
   i2c_writeReg(current, SRF08_REV_COMMAND, moveto);  delay(30); // now change i2c address
   blinkLED(5,1,2);
   #if defined(BUZZER)
-   notification_confirmation = 2;
+   alarmArray[7] = 2;
   #endif
 }
 
