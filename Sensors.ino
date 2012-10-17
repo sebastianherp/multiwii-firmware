@@ -1003,7 +1003,7 @@ uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
   static int16_t magZeroTempMin[3];
   static int16_t magZeroTempMax[3];
   uint8_t axis;
-#if !defined(MPU6050)  
+#if !defined(MPU6050_I2C_AUX_MASTER)  
   if ( currentTime < t ) return 0; //each read is spaced by 100ms
 #endif
   t = currentTime + 100000;
