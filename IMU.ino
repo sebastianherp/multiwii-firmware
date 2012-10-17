@@ -26,6 +26,13 @@ void computeIMU () {
       gyroData[axis] = (gyroADC[axis]*3+gyroADCprevious[axis])/4;
       gyroADCprevious[axis] = gyroADC[axis];
     }
+  #elif defined(MPU6050)
+    IMU_getADC();
+    for (axis = 0; axis < 3; axis++) {
+       gyroData[axis] = gyroADC[axis];
+    }
+    annexCode();
+    getEstimatedAttitude();
   #else
     #if ACC
       ACC_getADC();

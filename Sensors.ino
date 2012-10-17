@@ -1003,7 +1003,9 @@ uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
   static int16_t magZeroTempMin[3];
   static int16_t magZeroTempMax[3];
   uint8_t axis;
+#if !defined(MPU6050)  
   if ( currentTime < t ) return 0; //each read is spaced by 100ms
+#endif
   t = currentTime + 100000;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
   Device_Mag_getADC();
@@ -1191,12 +1193,58 @@ void Gyro_init() {
   #endif
 }
 
+void IMU_getADC() {
+  // 0x3B acc 6 bytes
+  // 0x41 temp 2 bytes
+  // 0x43 gyro 6 bytes
+  // 0x49 external (mag) 6 bytes
+
+#if defined(MPU6050_I2C_AUX_MASTER)
+  #define MPU6050_BUFLEN 20
+#else
+  #define MPU6050_BUFLEN 14
+#endif
+  uint8_t buf[MPU6050_BUFLEN];
+
+  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  i2c_read_reg_to_buf(MPU6050_ADDRESS, 0x3B, &buf, MPU6050_BUFLEN);
+  
+  // accelerometer
+  ACC_ORIENTATION(((buf[0]<<8) | buf[1])/8 ,
+                  ((buf[2]<<8) | buf[3])/8 ,
+                  ((buf[4]<<8) | buf[5])/8 );
+  ACC_Common();
+  
+  // temperature
+  debug[0] = ( ((buf[6]<<8) | buf[7])/8 ) / 3.4f + 3653; // in 0.01 degC
+  
+  // gyro
+  GYRO_ORIENTATION( ((buf[8]<<8) | buf[9])/4 , // range: +/- 8192; +/- 2000 deg/sec
+                    ((buf[10]<<8) | buf[11])/4 ,
+                    ((buf[12]<<8) | buf[13])/4 );
+  GYRO_Common();  
+
+  // compass
+#if defined(MPU6050_I2C_AUX_MASTER)
+  #if defined(HMC5843)
+    MAG_ORIENTATION( ((buf[14]<<8) | buf[15]) ,
+                     ((buf[16]<<8) | buf[17]) ,
+                     ((buf[18]<<8) | buf[19]) );
+  #endif
+  #if defined (HMC5883)  
+    MAG_ORIENTATION( ((buf[14]<<8) | buf[15]) ,
+                     ((buf[18]<<8) | buf[19]) ,
+                     ((buf[16]<<8) | buf[17]) );
+  #endif
+  #if defined (MAG3110)
+    MAG_ORIENTATION( ((buf[14]<<8) | buf[15]) ,          
+                     ((buf[16]<<8) | buf[17]) ,     
+                     ((buf[18]<<8) | buf[19]) );
+  #endif    
+#endif
+}
+
 void Gyro_getADC () {
-  i2c_getSixRawADC(MPU6050_ADDRESS, 0x43);
-  GYRO_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])/4 , // range: +/- 8192; +/- 2000 deg/sec
-                    ((rawADC[2]<<8) | rawADC[3])/4 ,
-                    ((rawADC[4]<<8) | rawADC[5])/4 );
-  GYRO_Common();
 }
 
 void ACC_init () {
@@ -1222,32 +1270,11 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  i2c_getSixRawADC(MPU6050_ADDRESS, 0x3B);
-  ACC_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])/8 ,
-                   ((rawADC[2]<<8) | rawADC[3])/8 ,
-                   ((rawADC[4]<<8) | rawADC[5])/8 );
-  ACC_Common();
 }
 
 //The MAG acquisition function must be replaced because we now talk to the MPU device
   #if defined(MPU6050_I2C_AUX_MASTER)
     void Device_Mag_getADC() {
-      i2c_getSixRawADC(MPU6050_ADDRESS, 0x49);               //0x49 is the first memory room for EXT_SENS_DATA
-      #if defined(HMC5843)
-        MAG_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) ,
-                         ((rawADC[2]<<8) | rawADC[3]) ,
-                         ((rawADC[4]<<8) | rawADC[5]) );
-      #endif
-      #if defined (HMC5883)  
-        MAG_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) ,
-                         ((rawADC[4]<<8) | rawADC[5]) ,
-                         ((rawADC[2]<<8) | rawADC[3]) );
-      #endif
-      #if defined (MAG3110)
-        MAG_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) ,          
-                         ((rawADC[2]<<8) | rawADC[3]) ,     
-                         ((rawADC[4]<<8) | rawADC[5]) );
-      #endif
     }
   #endif
 #endif

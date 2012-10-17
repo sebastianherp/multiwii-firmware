@@ -1023,7 +1023,7 @@ void loop () {
     switch (taskOrder % 4) {
       case 0:
         taskOrder++;
-        #if MAG
+        #if MAG && !defined(MPU6050)
           if (Mag_getADC()) { // max 350 µs (HMC5883)
             break;            // only break when we actually did something
           }
