@@ -409,6 +409,10 @@ static struct {
   static int32_t baroPressureSum;  
 #endif
 
+#if defined(MPU6050)
+  static uint16_t gyroTemperature; // 0.01 degC -> uint16 = max 655.36 degC
+#endif
+
 void annexCode() { // this code is excetuted at each loop and won't interfere with control loop if it lasts less than 650 microseconds
   static uint32_t calibratedAccTime;
   uint16_t tmp,tmp2;
@@ -1023,7 +1027,7 @@ void loop () {
     switch (taskOrder % 4) {
       case 0:
         taskOrder++;
-        #if MAG && !defined(MPU6050)
+        #if MAG && !defined(MPU6050_I2C_AUX_MASTER)
           if (Mag_getADC()) { // max 350 µs (HMC5883)
             break;            // only break when we actually did something
           }

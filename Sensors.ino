@@ -1216,7 +1216,7 @@ void IMU_getADC() {
   ACC_Common();
   
   // temperature
-  debug[0] = ( ((buf[6]<<8) | buf[7])/8 ) / 3.4f + 3653; // in 0.01 degC
+  gyroTemperature = ( ((buf[6]<<8) | buf[7])/8 ) / 3.4f + 3653; // in 0.01 degC
   
   // gyro
   GYRO_ORIENTATION( ((buf[8]<<8) | buf[9])/4 , // range: +/- 8192; +/- 2000 deg/sec
