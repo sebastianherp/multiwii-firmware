@@ -265,7 +265,7 @@ uint8_t i2c_readReg(uint8_t add, uint8_t reg) {
 void GYRO_Common() {
   static int16_t previousGyroADC[3] = {0,0,0};
   static int32_t g[3];
-  uint8_t axis;
+  uint8_t axis, tilt=0;
 
 #if defined MMGYRO       
   // Moving Average Gyros by Magnetron1
@@ -279,7 +279,17 @@ void GYRO_Common() {
   if (calibratingG>0) {
     for (axis = 0; axis < 3; axis++) {
       // Reset g[axis] at start of calibration
-      if (calibratingG == 400) g[axis]=0;
+      if (calibratingG == 400) {
+        g[axis]=0;
+        
+        #if defined(GYROCALIBRATIONFAILSAFE)
+            previousGyroADC[axis] = gyroADC[axis];
+          }
+          if (calibratingG % 10 == 0) {
+            if(abs(gyroADC[axis] - previousGyroADC[axis]) > 8) tilt=1;
+            previousGyroADC[axis] = gyroADC[axis];
+       #endif
+      }
       // Sum up 400 readings
       g[axis] +=gyroADC[axis];
       // Clear global variables for next reading
@@ -289,11 +299,23 @@ void GYRO_Common() {
         gyroZero[axis]=g[axis]/400;
         blinkLED(10,15,1);
       #if defined(BUZZER)
-        notification_confirmation = 4;
+        alarmArray[7] = 4;
       #endif
       }
     }
-    calibratingG--;
+    #if defined(GYROCALIBRATIONFAILSAFE)
+      if(tilt) {
+        calibratingG=1000;
+        LEDPIN_ON;
+      } else {
+        calibratingG--;
+        LEDPIN_OFF;
+      }
+      return;
+    #else
+      calibratingG--;
+    #endif
+    
   }
 
 #ifdef MMGYRO       
@@ -380,7 +402,7 @@ void ACC_Common() {
           AccInflightCalibrationActive = 0;
           AccInflightCalibrationMeasurementDone = 1;
           #if defined(BUZZER)
-            notification_confirmation = 1;      //buzzer for indicatiing the end of calibration
+            alarmArray[7] = 1;      //buzzer for indicatiing the end of calibration
           #endif
           // recover saved values to maintain current flight behavior until new values are transferred
           global_conf.accZero[ROLL]  = accZero_saved[ROLL] ;
@@ -433,7 +455,6 @@ void ACC_Common() {
 
 #if defined(BMP085)
 #define BMP085_ADDRESS 0x77
-static int32_t  pressure;
 
 static struct {
   // sensor registers from the BOSCH BMP085 datasheet
@@ -509,7 +530,7 @@ void i2c_BMP085_Calculate() {
   x1 = ((int32_t)bmp085_ctx.ut.val - bmp085_ctx.ac6) * bmp085_ctx.ac5 >> 15;
   x2 = ((int32_t)bmp085_ctx.mc << 11) / (x1 + bmp085_ctx.md);
   b5 = x1 + x2;
-  BaroTemperature = ((b5 + 8) * 10) >> 4; // in 0.01 �C (same as MS561101BA temperature)
+  baroTemperature = (b5 * 10 + 8) >> 4; // in 0.01 degC (same as MS561101BA temperature)
   // Pressure calculations
   b6 = b5 - 4000;
   x1 = (bmp085_ctx.b2 * (b6 * b6 >> 12)) >> 11; 
@@ -527,26 +548,28 @@ void i2c_BMP085_Calculate() {
   x1 = (p >> 8) * (p >> 8);
   x1 = (x1 * 3038) >> 16;
   x2 = (-7357 * p) >> 16;
-  BaroPressure = p + ((x1 + x2 + 3791) >> 4);
+  baroPressure = p + ((x1 + x2 + 3791) >> 4);
 }
 
-uint8_t Baro_update() { // first UT conversion is started in init procedure
+//return 0: no data available, no computation ;  1: new value available  ; 2: no new value, but computation time
+uint8_t Baro_update() {                   // first UT conversion is started in init procedure
   if (currentTime < bmp085_ctx.deadline) return 0; 
   bmp085_ctx.deadline = currentTime+6000;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, BMP085 is ok with this speed
   if (bmp085_ctx.state == 0) {
     i2c_BMP085_UT_Read(); 
-    i2c_BMP085_UP_Start();
-    Baro_Common();
+    i2c_BMP085_UP_Start(); 
     bmp085_ctx.state = 1; 
+    Baro_Common();
     bmp085_ctx.deadline += 8000;   // 6000+8000=14000
+    return 1;
   } else {
     i2c_BMP085_UP_Read(); 
     i2c_BMP085_UT_Start(); 
     i2c_BMP085_Calculate(); 
     bmp085_ctx.state = 0; 
-  } 
-  return 1;
+    return 2;
+  }
 }
 #endif
 
@@ -571,7 +594,6 @@ uint8_t Baro_update() { // first UT conversion is started in init procedure
 #define MS561101BA_OSR_4096 0x08
 
 #define OSR MS561101BA_OSR_4096
-static int32_t  pressure;
 
 static struct {
   // sensor registers from the MS561101BA datasheet
@@ -645,20 +667,20 @@ void i2c_MS561101BA_UT_Read() {
 }
 
 void i2c_MS561101BA_Calculate() {
-  int32_t temperature,off2=0,sens2=0,delt;
+  int32_t off2=0,sens2=0,delt;
 
   int32_t dT   = ms561101ba_ctx.ut.val - ((uint32_t)ms561101ba_ctx.c[5] << 8);
   int64_t off  = ((uint32_t)ms561101ba_ctx.c[2] <<16) + (((int64_t)dT * ms561101ba_ctx.c[4]) >> 7);
   int64_t sens = ((uint32_t)ms561101ba_ctx.c[1] <<15) + (((int64_t)dT * ms561101ba_ctx.c[3]) >> 8);
-  BaroTemperature  = 2000 + (((int64_t)dT * ms561101ba_ctx.c[6])>>23);
+  baroTemperature  = 2000 + (((int64_t)dT * ms561101ba_ctx.c[6])>>23);
 
-  if (BaroTemperature < 2000) { // temperature lower than 20st.C 
-    delt = BaroTemperature-2000;
+  if (baroTemperature < 2000) { // temperature lower than 20st.C 
+    delt = baroTemperature-2000;
     delt  = delt*delt;
     off2  = (5 * delt)>>1; 
     sens2 = (5 * delt)>>2; 
-    if (BaroTemperature < -1500) { // temperature lower than -15st.C
-      delt  = BaroTemperature+1500;
+    if (baroTemperature < -1500) { // temperature lower than -15st.C
+      delt  = baroTemperature+1500;
       delt  = delt*delt;
       off2  += 7 * delt; 
       sens2 += (11 * delt)>>1; 
@@ -666,38 +688,43 @@ void i2c_MS561101BA_Calculate() {
   } 
   off  -= off2; 
   sens -= sens2;
-  BaroPressure     = (( (ms561101ba_ctx.up.val * sens ) >> 21) - off) >> 15;
+  baroPressure     = (( (ms561101ba_ctx.up.val * sens ) >> 21) - off) >> 15;
 }
 
-uint8_t Baro_update() { // first UT conversion is started in init procedure
+//return 0: no data available, no computation ;  1: new value available  ; 2: no new value, but computation time
+uint8_t Baro_update() {                            // first UT conversion is started in init procedure
   if (currentTime < ms561101ba_ctx.deadline) return 0; 
   ms561101ba_ctx.deadline = currentTime+10000;  // UT and UP conversion take 8.5ms so we do next reading after 10ms 
   TWBR = ((F_CPU / 400000L) - 16) / 2;          // change the I2C clock rate to 400kHz, MS5611 is ok with this speed
   if (ms561101ba_ctx.state == 0) {
     i2c_MS561101BA_UT_Read(); 
     i2c_MS561101BA_UP_Start(); 
-    Baro_Common();
-    ms561101ba_ctx.state = 1; 
+    Baro_Common();                              // moved here for less timecycle spike
+    ms561101ba_ctx.state = 1;
+    return 1;
   } else {
     i2c_MS561101BA_UP_Read();
     i2c_MS561101BA_UT_Start(); 
     i2c_MS561101BA_Calculate();
     ms561101ba_ctx.state = 0; 
-  }  
-  return 1;
+    return 2;
+  }
 }
 #endif
 
-void Baro_Common() {
-  static int32_t baroHistTab[BARO_TAB_SIZE];
-  static int8_t baroHistIdx;
+#if BARO
+  void Baro_Common() {
+    static int32_t baroHistTab[BARO_TAB_SIZE];
+    static int8_t baroHistIdx;
+  
+    uint8_t indexplus1 = (baroHistIdx + 1)%BARO_TAB_SIZE;
+    baroHistTab[baroHistIdx] = baroPressure;
+    baroPressureSum += baroHistTab[baroHistIdx];
+    baroPressureSum -= baroHistTab[indexplus1];
+    baroHistIdx = indexplus1;  
+  }
+#endif
 
-  uint8_t indexplus1 = (baroHistIdx + 1)%BARO_TAB_SIZE;
-  baroHistTab[baroHistIdx] = BaroPressure;
-  BaroPressureSum += baroHistTab[baroHistIdx];
-  BaroPressureSum -= baroHistTab[indexplus1];
-  baroHistIdx = indexplus1;  
-}
 
 // ************************************************************************************************************
 // I2C Accelerometer MMA7455 
@@ -993,12 +1020,12 @@ void Gyro_getADC () {
 static float   magCal[3] = {1.0,1.0,1.0};  // gain for each axis, populated at sensor init
 static uint8_t magInit = 0;
 
-void Mag_getADC() {
+uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
   static uint32_t t,tCal = 0;
   static int16_t magZeroTempMin[3];
   static int16_t magZeroTempMax[3];
   uint8_t axis;
-  if ( currentTime < t ) return; //each read is spaced by 100ms
+  if ( currentTime < t ) return 0; //each read is spaced by 100ms
   t = currentTime + 100000;
   TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
   Device_Mag_getADC();
@@ -1045,6 +1072,7 @@ void Mag_getADC() {
       magADC[PITCH] = temp;
     #endif
   }
+  return 1;
 }
 #endif
 
@@ -1068,7 +1096,7 @@ void Mag_getADC() {
     magInit = 1;
   }
   
-  #if not defined(MPU6050_I2C_AUX_MASTER)
+  #if !defined(MPU6050_I2C_AUX_MASTER)
     void Device_Mag_getADC() {
       i2c_getSixRawADC(MAG_ADDRESS,MAG_DATA_REGISTER);
       MAG_ORIENTATION( ((rawADC[0]<<8) | rawADC[1]) ,          
@@ -1134,7 +1162,7 @@ void getADC() {
   #endif
 }
 
-#if not defined(MPU6050_I2C_AUX_MASTER)
+#if !defined(MPU6050_I2C_AUX_MASTER)
 void Device_Mag_getADC() {
   getADC();
 }
@@ -1455,7 +1483,7 @@ void i2c_srf08_change_addr(int8_t current, int8_t moveto) {
   i2c_writeReg(current, SRF08_REV_COMMAND, moveto);  delay(30); // now change i2c address
   blinkLED(5,1,2);
   #if defined(BUZZER)
-   notification_confirmation = 2;
+   alarmArray[7] = 2;
   #endif
 }
 

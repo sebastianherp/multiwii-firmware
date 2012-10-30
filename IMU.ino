@@ -268,7 +268,9 @@ void getEstimatedAttitude(){
   #endif
 }
 
+#define UPDATE_INTERVAL 25000    // 40hz update rate (20hz LPF on acc)
 #define INIT_DELAY      10000000  // 10 sec initialization delay
+#define BARO_TAB_SIZE   21
 
 #define ACC_Z_DEADBAND (acc_1G/50)
 
@@ -281,84 +283,79 @@ void getEstimatedAttitude(){
     value += deadband;                  \
   }
 
-void getEstimatedAltitude(){
-  static uint32_t deadLine = 0;
-  static float BaroGroundPressure = 0;
-  
-  if(BaroGroundPressure == 0 && currentTime > INIT_DELAY) { // 10 seconds delay
-    BaroGroundPressure = BaroPressureSum/(float)(BARO_TAB_SIZE - 1);
+#if BARO
+uint8_t getEstimatedAltitude(){
+  static uint32_t deadLine = INIT_DELAY;
+  static float baroGroundPressure = 0; // a float is really needed ?
+
+  if(baroGroundPressure == 0 && currentTime > INIT_DELAY) { // 10 seconds delay
+    baroGroundPressure = baroPressureSum/(float)(BARO_TAB_SIZE - 1);
   }
+ 
+  if (abs(currentTime - deadLine) < UPDATE_INTERVAL) return 0;
 
   uint16_t dTime = currentTime - deadLine;
   deadLine = currentTime;
-  
-  // calculate altitude from pressure
-  // old way
-  //BaroAlt = (1.0f - pow((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101325.0f, 0.190295f)) * 4433000.0f; //centimeter (300 µs)
-  // some other way, but it is slower
-  //BaroAlt = (4433080.0f - 494654.0f * pow((BaroPressureSum/(float)(BARO_TAB_SIZE - 1)), 0.1902632f));
-  // assuming everything is standard (pressure at sea level 1013.3 and 15°C, a lot faster
-  //BaroAlt = log((BaroPressureSum/(float)(BARO_TAB_SIZE - 1))/101330.0f) / -0.012f * 10000;
 
-  if(BaroGroundPressure != 0) {
+  if(baroGroundPressure != 0) {
     // pressure relative to ground pressure with temperature compensation (fast!)
     // see: https://code.google.com/p/ardupilot-mega/source/browse/libraries/AP_Baro/AP_Baro.cpp
-    BaroAlt = log( BaroGroundPressure / (BaroPressureSum/(float)(BARO_TAB_SIZE - 1)) ) * (BaroTemperature+27315) * 29.271267f;  
+    BaroAlt = log( baroGroundPressure / (baroPressureSum/(float)(BARO_TAB_SIZE - 1)) ) * (baroTemperature+27315) * 29.271267f; // in cemtimeter 
   } else {
     BaroAlt = 0;
   }
 
-  //EstAlt = EstAlt*0.6f + (baroHigh*10.0f/(BARO_TAB_SIZE - 1))*0.4f; // additional LPF to reduce baro noise
-  EstAlt = (EstAlt * 5 + BaroAlt * 3) >> 3; // additional LPF to reduce baro noise (faster by 30 µs)
-  
+  EstAlt = (EstAlt * 6 + BaroAlt * 2) >> 3; // additional LPF to reduce baro noise (faster by 30 �s)
+
+
   #ifndef SUPPRESS_BARO_ALTHOLD
-  //**** Alt. Set Point stabilization PID ****
-
-  //P
-  int16_t error = constrain(AltHold - EstAlt, -300, 300);
-  applyDeadband(error, 10); //remove small P parametr to reduce noise near zero position
-  BaroPID = constrain((conf.P8[PIDALT] * error / 100), -150, +150);
+    //P
+    int16_t error = constrain(AltHold - EstAlt, -300, 300);
+    applyDeadband(error, 10); //remove small P parametr to reduce noise near zero position
+    BaroPID = constrain((conf.P8[PIDALT] * error / 100), -150, +150);
+    
+    //I
+    errorAltitudeI += error * conf.I8[PIDALT]/50;
+    errorAltitudeI = constrain(errorAltitudeI,-30000,30000);
+    BaroPID += (errorAltitudeI / 500); //I in range +/-60
+    
+    
+    // projection of ACC vector to global Z, with 1G subtructed
+    // Math: accZ = A * G / |G| - 1G
+    float invG = InvSqrt(isq(EstG.V.X) + isq(EstG.V.Y) + isq(EstG.V.Z));
+    int16_t accZ = (accLPFVel[ROLL] * EstG.V.X + accLPFVel[PITCH] * EstG.V.Y + accLPFVel[YAW] * EstG.V.Z) * invG - acc_1G; 
+    //int16_t accZ = (accLPFVel[ROLL] * EstG.V.X + accLPFVel[PITCH] * EstG.V.Y + accLPFVel[YAW] * EstG.V.Z) * invG - 1/invG; 
+    applyDeadband(accZ, ACC_Z_DEADBAND);
+    //debug[0] = accZ; 
+    
+    static float vel = 0.0f;
+    static float accVelScale = 9.80665f / 10000.0f / acc_1G ;
+    
+    // Integrator - velocity, cm/sec
+    vel+= accZ * accVelScale * dTime;
+    
+    static int32_t lastBaroAlt;
+    float baroVel = (EstAlt - lastBaroAlt) * 1000000.0f / dTime;
+    lastBaroAlt = EstAlt;
   
-  //I
-  errorAltitudeI += error * conf.I8[PIDALT]/50;
-  errorAltitudeI = constrain(errorAltitudeI,-30000,30000);
-  BaroPID += (errorAltitudeI / 500); //I in range +/-60
-  
-  
-  // projection of ACC vector to global Z, with 1G subtructed
-  // Math: accZ = A * G / |G| - 1G
-  float invG = InvSqrt(isq(EstG.V.X) + isq(EstG.V.Y) + isq(EstG.V.Z));
-  int16_t accZ = (accLPFVel[ROLL] * EstG.V.X + accLPFVel[PITCH] * EstG.V.Y + accLPFVel[YAW] * EstG.V.Z) * invG - acc_1G; 
-  //int16_t accZ = (accLPFVel[ROLL] * EstG.V.X + accLPFVel[PITCH] * EstG.V.Y + accLPFVel[YAW] * EstG.V.Z) * invG - 1/invG; 
-  applyDeadband(accZ, ACC_Z_DEADBAND);
-  //debug[0] = accZ; 
-  
-  static float vel = 0.0f;
-  static float accVelScale = 9.80665f / 10000.0f / acc_1G ;
-  
-  // Integrator - velocity, cm/sec
-  vel+= accZ * accVelScale * dTime;
-  
-  static int32_t lastBaroAlt;
-  float baroVel = (EstAlt - lastBaroAlt) * 1000000.0f / dTime;
-  lastBaroAlt = EstAlt;
-
-  baroVel = constrain(baroVel, -300, 300); // constrain baro velocity +/- 300cm/s
-  applyDeadband(baroVel, 10); // to reduce noise near zero  
-  //debug[1] = baroVel;
-  
-  // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity). 
-  // By using CF it's possible to correct the drift of integrated accZ (velocity) without loosing the phase, i.e without delay
-  vel = vel * 0.985f + baroVel * 0.015f;
-  //vel = constrain(vel, -300, 300); // constrain velocity +/- 300cm/s 
-  //debug[2] = vel;
-  
-  //D
-  float vel_tmp = vel;
-  applyDeadband(vel_tmp, 5);
-  vario = vel_tmp;
-  BaroPID -= constrain(conf.D8[PIDALT] * vel_tmp / 20, -150, 150);
-  //debug[3] = BaroPID;
-  
+    baroVel = constrain(baroVel, -300, 300); // constrain baro velocity +/- 300cm/s
+    applyDeadband(baroVel, 10); // to reduce noise near zero  
+    //debug[1] = baroVel;
+    
+    // apply Complimentary Filter to keep the calculated velocity based on baro velocity (i.e. near real velocity). 
+    // By using CF it's possible to correct the drift of integrated accZ (velocity) without loosing the phase, i.e without delay
+    vel = vel * 0.985f + baroVel * 0.015f;
+    //vel = constrain(vel, -300, 300); // constrain velocity +/- 300cm/s 
+    //debug[2] = vel;
+    
+    //D
+    float vel_tmp = vel;
+    applyDeadband(vel_tmp, 5);
+    vario = vel_tmp;
+    BaroPID -= constrain(conf.D8[PIDALT] * vel_tmp / 20, -150, 150);
+    //debug[3] = BaroPID;
   #endif
+  return 1;
 }
+#endif //BARO
+

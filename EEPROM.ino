@@ -20,7 +20,10 @@ void readEEPROM() {
   if(global_conf.currentSet>2) global_conf.currentSet=0;
   eeprom_read_block((void*)&conf, (void*)(global_conf.currentSet * sizeof(conf) + sizeof(global_conf)), sizeof(conf));
   if(calculate_sum((uint8_t*)&conf, sizeof(conf)) != conf.checksum) {
-    blinkLED(6,100,3);
+    blinkLED(6,100,3);    
+    #if defined(BUZZER)
+      alarmArray[7] = 3;
+    #endif
     LoadDefaults();                 // force load defaults 
   }
   for(i=0;i<6;i++) {
@@ -69,6 +72,10 @@ void writeGlobalSet(uint8_t b) {
   global_conf.checksum = calculate_sum((uint8_t*)&global_conf, sizeof(global_conf));
   eeprom_write_block((const void*)&global_conf, (void*)0, sizeof(global_conf));
   if (b == 1) blinkLED(15,20,1);
+  #if defined(BUZZER)
+    alarmArray[7] = 1; 
+  #endif
+
 }
  
 void writeParams(uint8_t b) {
@@ -77,6 +84,9 @@ void writeParams(uint8_t b) {
   eeprom_write_block((const void*)&conf, (void*)(global_conf.currentSet * sizeof(conf) + sizeof(global_conf)), sizeof(conf));
   readEEPROM();
   if (b == 1) blinkLED(15,20,1);
+  #if defined(BUZZER)
+    alarmArray[7] = 1; //beep if loaded from gui or android
+  #endif
 }
 
 void LoadDefaults() {
@@ -132,8 +142,7 @@ void LoadDefaults() {
     conf.vbatscale = VBATSCALE;
     conf.vbatlevel1_3s = VBATLEVEL1_3S;
     conf.vbatlevel2_3s = VBATLEVEL2_3S;
-    conf.vbatlevel3_3s = VBATLEVEL3_3S;
-    conf.vbatlevel4_3s = VBATLEVEL4_3S;
+    conf.vbatlevel_crit = VBATLEVEL_CRIT;
     conf.no_vbat = NO_VBAT;
   #endif
   #ifdef POWERMETER

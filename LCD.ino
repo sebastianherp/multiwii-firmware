@@ -478,7 +478,7 @@ void LCDprint(uint8_t i) {
   }
   LCDPIN_ON //switch ON digital PIN 0
   delayMicroseconds(BITDELAY);
-#elif defined(LCD_TEXTSTAR) || defined(LCD_VT100)
+#elif defined(LCD_TEXTSTAR) || defined(LCD_VT100) || defined(LCD_TTY)
   SerialWrite(0, i );
 #elif defined(LCD_ETPP)
   i2c_ETPP_send_char(i);
@@ -508,6 +508,8 @@ void LCDclear() {
   LCDprint(0x1B); LCDprint(0x5B); LCDprintChar("2J"); //ED2
   LCDcrlf();
   LCDprint(0x1B); LCDprint(0x5B); LCDprintChar("1;1H");//cursor top left
+#elif defined(LCD_TTY)
+  LCDcrlf();
 #elif defined(LCD_ETPP)
   i2c_ETPP_send_cmd(0x01); // Clear display command, which does NOT clear an Eagle Tree because character set "R" has a '>' at 0x20
   for (byte i = 0; i<80; i++) i2c_ETPP_send_char(' ');// Blanks for all 80 bytes of RAM in the controller, not just the 2x16 display
@@ -533,6 +535,8 @@ void LCDsetLine(byte line) { // Line = 1 or 2 - vt100 has lines 1-99
   LCDprint( digit1(line) );
   LCDprintChar(";1H"); //pos line 1
   LCDprint(0x1b); LCDprint(0x5b); LCDprintChar("2K");//EL2
+#elif defined(LCD_TTY)
+  LCDcrlf();
 #elif defined(LCD_ETPP)
   i2c_ETPP_set_cursor(0,line-1);
 #elif defined(LCD_LCD03)
@@ -580,7 +584,7 @@ void lcdprint_int16(int16_t v) {
 void initLCD() {
   blinkLED(20,30,1);
   #if defined(BUZZER)
-    notification_confirmation = 1;
+    alarmArray[7] = 1;
   #endif
   #if defined(LCD_SERIAL3W)
     SerialEnd(0);
@@ -593,6 +597,8 @@ void initLCD() {
     LCDprint(0xFE);LCDprint('R');//reset
   #elif defined(LCD_VT100)
     //LCDprint(0x1b); LCDprint('c'); //RIS
+  #elif defined(LCD_TTY)
+    ; // do nothing special to init the serial tty device
   #elif defined(LCD_ETPP)
     // Eagle Tree Power Panel - I2C & Daylight Readable LCD
     i2c_ETPP_init();
@@ -611,11 +617,11 @@ void initLCD() {
   #endif
   #ifndef OLED_I2C_128x64LOGO_PERMANENT
     LCDclear();
-    strcpy_P(line1,PSTR("MultiWii V-.--"));
+    strcpy_P(line1,PSTR( BOARD_NAME )); // user defined macro
   //                     0123456789.123456
-    line1[10] = digit100(VERSION);
-    line1[12] = digit10(VERSION);
-    line1[13] = digit1(VERSION);
+    line1[12] = digit100(VERSION);
+    line1[14] = digit10(VERSION);
+    line1[15] = digit1(VERSION);
     LCDattributesBold();
     LCDsetLine(1); LCDprintChar(line1);
     strcpy_P(line2,PSTR("  Unknown Modell"));
@@ -657,9 +663,10 @@ void initLCD() {
     //LCDattributesBold();
     LCDsetLine(2); LCDprintChar(line2);
     LCDattributesOff();
+    delay(2500);
   #endif // OLED_I2C_128x64LOGO_PERMANENT
   #if defined(LCD_TEXTSTAR) || defined(LCD_VT100)
-    delay(2500);
+    //delay(2500);
     LCDclear();
   #endif
   #if defined(OLED_I2C_128x64) && !(defined(OLED_I2C_128x64LOGO_PERMANENT)) && defined(NEW_OLED_FONT) && !(defined(LCD_TELEMETRY))
@@ -795,7 +802,8 @@ const char PROGMEM lcd_param_text38 [] = "SERvTRIM Y";
 //const char PROGMEM lcd_param_text41 [] = "an overrun";
 //#endif
 #if defined(LCD_CONF_AUX)
-const char PROGMEM lcd_param_text42 [] = "AUX level ";
+const char PROGMEM lcd_param_text41 [] = "AUX angle ";
+const char PROGMEM lcd_param_text42 [] = "AUX horizn";
 const char PROGMEM lcd_param_text43 [] = "AUX baro  ";
 const char PROGMEM lcd_param_text44 [] = "AUX mag   ";
 const char PROGMEM lcd_param_text45 [] = "AUX camstb";
@@ -844,8 +852,7 @@ const char PROGMEM lcd_param_text35 [] =  "batt volt ";
 const char PROGMEM lcd_param_text102 [] = "VBAT SCALE";
 const char PROGMEM lcd_param_text103 [] = "BattWarn 1";
 const char PROGMEM lcd_param_text104 [] = "BattWarn 2";
-const char PROGMEM lcd_param_text105 [] = "BattWarn 3";
-const char PROGMEM lcd_param_text106 [] = "BattWarn 4";
+const char PROGMEM lcd_param_text106 [] = "BattW Crit";
 const char PROGMEM lcd_param_text107 [] = "Batt NoBat";
 #endif
 #ifdef POWERMETER
@@ -907,11 +914,15 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
 #endif
 #ifdef LCD_CONF_AUX
   #if ACC
-    &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX1,
-    &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX2,
+    &lcd_param_text41, &conf.activate[BOXANGLE], &__AUX1,
+    &lcd_param_text41, &conf.activate[BOXANGLE], &__AUX2,
+    &lcd_param_text42, &conf.activate[BOXHORIZON], &__AUX1,
+    &lcd_param_text42, &conf.activate[BOXHORIZON], &__AUX2,
     #ifndef SUPPRESS_LCD_CONF_AUX34
-      &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX3,
-      &lcd_param_text42, &conf.activate[BOXANGLE], &__AUX4,
+      &lcd_param_text41, &conf.activate[BOXANGLE], &__AUX3,
+      &lcd_param_text41, &conf.activate[BOXANGLE], &__AUX4,
+      &lcd_param_text42, &conf.activate[BOXHORIZON], &__AUX3,
+      &lcd_param_text42, &conf.activate[BOXHORIZON], &__AUX4,
     #endif
   #endif
   #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
@@ -1034,8 +1045,7 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
   &lcd_param_text102, &conf.vbatscale, &__PT,
   &lcd_param_text103, &conf.vbatlevel1_3s, &__P,
   &lcd_param_text104, &conf.vbatlevel2_3s, &__P,
-  &lcd_param_text105, &conf.vbatlevel3_3s, &__P,
-  &lcd_param_text106, &conf.vbatlevel4_3s, &__P,
+  &lcd_param_text106, &conf.vbatlevel_crit, &__P,
   &lcd_param_text107, &conf.no_vbat, &__P,
 #endif
 #ifdef FLYING_WING
@@ -1171,7 +1181,7 @@ static uint8_t lcdStickState[4];
 void ConfigRefresh(uint8_t p) {
   blinkLED(10,20,1);
   #if defined(BUZZER)
-    notification_toggle = 1;
+    alarmArray[0] = 1;
   #endif
   strcpy_P(line1,PSTR("                "));
   strcpy(line2,line1);
@@ -1192,7 +1202,7 @@ void ConfigRefresh(uint8_t p) {
   #ifndef OLED_I2C_128x64
    blinkLED(2,4,1);
    #if defined(BUZZER)
-    notification_toggle = 1;
+     alarmArray[0] = 1;
    #endif
    LCDclear();
   #else
@@ -1248,7 +1258,7 @@ void configurationLoop() {
     #if defined(SPEKTRUM)
       readRawRC(1); delay(44); // For digital receivers like Spektrum, SBUS, and Serial, to ensure that an "old" frame does not cause immediate exit at startup. 
     #endif
-    #if defined(LCD_TEXTSTAR) || defined(LCD_VT100) // textstar or vt100 can send keys
+    #if defined(LCD_TEXTSTAR) || defined(LCD_VT100) || defined(LCD_TTY) // textstar, vt100 and tty can send keys
       key = ( SerialAvailable(0) ? SerialRead(0) : 0 );
     #endif
     #ifdef LCD_CONF_DEBUG
@@ -1276,7 +1286,7 @@ void configurationLoop() {
   } // while (LCD == 1)
   blinkLED(20,30,1);
   #if defined(BUZZER)
-    notification_confirmation = 1;
+    alarmArray[7] = 1;
   #endif
 
   LCDclear();
@@ -1399,7 +1409,7 @@ void output_Vmin() {
     line1[1] = digit100(vbatMin);
     line1[2] = digit10(vbatMin);
     line1[4] = digit1(vbatMin);
-    LCDbar(7, (vbatMin > conf.vbatlevel4_3s ? (((vbatMin - conf.vbatlevel4_3s)*100)/(VBATNOMINAL-conf.vbatlevel4_3s)) : 0 ));
+    LCDbar(7, (vbatMin > conf.vbatlevel_crit ? (((vbatMin - conf.vbatlevel_crit)*100)/(VBATNOMINAL-conf.vbatlevel_crit)) : 0 ));
     LCDprintChar(line1);
   #endif
 }

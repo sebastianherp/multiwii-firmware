@@ -462,7 +462,7 @@ void initOutput() {
       delay(5000);
       blinkLED(2,20, 2);
     #if defined(BUZZER)
-      notification_confirmation = 2;
+      alarmArray[7] = 2;
     #endif
     }
     exit; // statement never reached
@@ -924,8 +924,16 @@ void mixTable() {
       #define S_PITCH servo[0]
       #define S_ROLL  servo[1]
     #endif
-    S_PITCH = TILT_PITCH_MIDDLE + rcData[AUX3]-1500;
-    S_ROLL  = TILT_ROLL_MIDDLE  + rcData[AUX4]-1500;
+    #ifdef TILT_PITCH_AUX_CH
+      S_PITCH = TILT_PITCH_MIDDLE + rcData[TILT_PITCH_AUX_CH]-1500;
+    #else
+      S_PITCH = TILT_PITCH_MIDDLE;
+    #endif
+    #ifdef TILT_ROLL_AUX_CH
+      S_ROLL  = TILT_ROLL_MIDDLE  + rcData[TILT_ROLL_AUX_CH]-1500;
+    #else
+      S_ROLL  = TILT_ROLL_MIDDLE;
+    #endif
     if (rcOptions[BOXCAMSTAB]) {
       S_PITCH += TILT_PITCH_PROP * angle[PITCH] /16 ;
       S_ROLL  += TILT_ROLL_PROP  * angle[ROLL]  /16 ;
@@ -950,11 +958,11 @@ void mixTable() {
     } else {
         // to use it with A0_A1_PIN_HEX
       #if defined(A0_A1_PIN_HEX) && (NUMBER_MOTOR == 6) && defined(PROMINI)
-        servo[2] = constrain(TILT_PITCH_MIDDLE  + rcData[AUX3]-1500 , TILT_PITCH_MIN, TILT_PITCH_MAX);
-        servo[3] = constrain(TILT_ROLL_MIDDLE   + rcData[AUX4]-1500,  TILT_ROLL_MIN, TILT_ROLL_MAX);     
+        servo[2] = constrain(TILT_PITCH_MIDDLE  + rcData[TILT_PITCH_AUX_CH]-1500 , TILT_PITCH_MIN, TILT_PITCH_MAX);
+        servo[3] = constrain(TILT_ROLL_MIDDLE   + rcData[TILT_ROLL_AUX_CH]-1500,  TILT_ROLL_MIN, TILT_ROLL_MAX);     
       #else
-        servo[0] = constrain(TILT_PITCH_MIDDLE  + rcData[AUX3]-1500 , TILT_PITCH_MIN, TILT_PITCH_MAX);
-        servo[1] = constrain(TILT_ROLL_MIDDLE   + rcData[AUX4]-1500,  TILT_ROLL_MIN, TILT_ROLL_MAX);
+        servo[0] = constrain(TILT_PITCH_MIDDLE  + rcData[TILT_PITCH_AUX_CH]-1500 , TILT_PITCH_MIN, TILT_PITCH_MAX);
+        servo[1] = constrain(TILT_ROLL_MIDDLE   + rcData[TILT_ROLL_AUX_CH]-1500,  TILT_ROLL_MIN, TILT_ROLL_MAX);
       #endif
     }
   #endif  
