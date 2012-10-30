@@ -136,7 +136,9 @@
       //#define LADYBIRD
       //#define MEGAWAP_V2_STD     // available here: http://www.multircshop.com                    <- confirmed by Alex
       //#define MEGAWAP_V2_ADV
-      //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085 
+      //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085
+      //#define HK_MultiWii_328P   // Also labeled "Hobbybro" on the back.  ITG3205 + BMA180 + BMP085 + NMC5583L + DSM2 Connector (Spektrum Satellite)  
+      
 
       
     /***************************    independent sensors    ********************************/
@@ -527,7 +529,10 @@
      Additional information: http://www.multiwii.com/forum/viewtopic.php?f=8&t=503 */
     //#define LEVEL_PDF
 
-
+  /************************        AP FlightMode        **********************************/
+  /* Gyrocalibration will be repeated if copter is moving during calibration. 
+  Beware: May lead to unflyable copter, because of Temperature drift ob cheap gyros. */
+    //#define GYROCALIBRATIONFAILSAFE
   /************************        AP FlightMode        **********************************/
     /* Temporarily Disables GPS_HOLD_MODE to be able to make it possible to adjust the Hold-position when moving the sticks.*/
     //#define AP_MODE 20  // Create a deadspan for GPS.
