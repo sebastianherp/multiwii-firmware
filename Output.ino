@@ -819,8 +819,9 @@ void mixTable() {
   #ifdef BI
     motor[0] = PIDMIX(+1, 0, 0); //LEFT
     motor[1] = PIDMIX(-1, 0, 0); //RIGHT        
-    servo[4]  = constrain(1500 + (YAW_DIRECTION * axisPID[YAW]) + axisPID[PITCH], 1020, 2000); //LEFT
-    servo[5]  = constrain(1500 + (YAW_DIRECTION * axisPID[YAW]) - axisPID[PITCH], 1020, 2000); //RIGHT
+    servo[4]  = constrain(1500 + (YAW_DIRECTION * axisPID[YAW]) + (BI_PITCH_DIRECTION * axisPID[PITCH]), 1020, 2000); //LEFT
+    servo[5]  = constrain(1500 + (YAW_DIRECTION * axisPID[YAW]) - (BI_PITCH_DIRECTION * axisPID[PITCH]), 1020, 2000); //RIGHT
+
   #endif
   #ifdef TRI
     motor[0] = PIDMIX( 0,+4/3, 0); //REAR
@@ -1227,7 +1228,11 @@ void mixTable() {
     if (maxMotor > MAXTHROTTLE) // this is a way to still have good gyro corrections if at least one motor reaches its max.
       motor[i] -= maxMotor - MAXTHROTTLE;
     motor[i] = constrain(motor[i], MINTHROTTLE, MAXTHROTTLE);    
-    if ((rcData[THROTTLE]) < MINCHECK)
+  #if defined(ALTHOLD_FAST_THROTTLE_CHANGE)
+    if (rcData[THROTTLE] < MINCHECK)
+  #else
+    if ((rcData[THROTTLE] < MINCHECK) && !f.BARO_MODE)
+  #endif  
       #ifndef MOTOR_STOP
         motor[i] = MINTHROTTLE;
       #else

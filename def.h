@@ -46,6 +46,8 @@
   #define SERVO_RFR_160HZ
   #define VBAT
   #define POWERMETER_SOFT
+  #define MMGYRO 10
+  #define MMGYROVECTORLENGTH 15
 #elif defined(COPTERTEST)
   #error "*** this test is not yet defined"
 #endif
@@ -1666,7 +1668,7 @@
 #endif
 
 #if !defined(ALT_HOLD_THROTTLE_NEUTRAL_ZONE)
-  #define ALT_HOLD_THROTTLE_NEUTRAL_ZONE 20
+  #define ALT_HOLD_THROTTLE_NEUTRAL_ZONE 40
 #endif 
 
   /**************************************************************************************/
