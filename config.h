@@ -55,7 +55,7 @@
     //#define MINTHROTTLE 1120 // for Super Simple ESCs 10A
     //#define MINTHROTTLE 1064 // special ESC (simonk)
     //#define MINTHROTTLE 1050 // for brushed ESCs like ladybird
-    #define MINTHROTTLE 1150
+    #define MINTHROTTLE 1150 // (*)
 
   /****************************    Motor maxthrottle    *******************************/
     /* this is the maximum value for the ESCs at full power, this value can be increased up to 2000 */
@@ -530,18 +530,15 @@
 /*****************                                                                 ***************/
 /*************************************************************************************************/
 
-  /* Pseudo-derivative conrtroller for level mode (experimental)
-     Additional information: http://www.multiwii.com/forum/viewtopic.php?f=8&t=503 */
-    //#define LEVEL_PDF
-
-  /************************        AP FlightMode        **********************************/
+  /************************        continuous gyro calibration        ********************/
   /* Gyrocalibration will be repeated if copter is moving during calibration. */
     //#define GYROCALIBRATIONFAILSAFE
+
   /************************        AP FlightMode        **********************************/
     /* Temporarily Disables GPS_HOLD_MODE to be able to make it possible to adjust the Hold-position when moving the sticks.*/
-    //#define AP_MODE 20  // Create a deadspan for GPS.
+    #define AP_MODE 40  // Create a deadspan for GPS.
         
-  /************************   Assisted AcroTrainer    **********************************/
+  /************************   Assisted AcroTrainer    ************************************/
     /* Train Acro with auto recovery. Value set the point where ANGLE_MODE takes over.
        Remember to activate ANGLE_MODE first!...
        A Value on 200 will give a very distinct transfer */
@@ -630,15 +627,18 @@
     #define GPS_BAUD   115200
 
 
-    /* GPS protocol 
+   /* GPS protocol 
        NMEA  - Standard NMEA protocol GGA, GSA and RMC  sentences are needed
        UBLOX - U-Blox binary protocol, use the ublox config file (u-blox-config.ublox.txt) from the source tree 
-       With UBLOX you don't have to use GPS_FILTERING in multiwii code !!! */
+       MTK_BINARY16 and MTK_BINARY19 - MTK3329 chipset based GPS with DIYDrones binary firmware (v1.6 or v1.9)
+       With UBLOX and MTK_BINARY you don't have to use GPS_FILTERING in multiwii code !!! */
+
     
     //#define NMEA
     //#define UBLOX
-
-    //#define INIT_MTK_GPS        // initialize MTK GPS for using selected speed, 5Hz update rate and GGA & RMC sentence 
+    //#define MTK_BINARY16
+    //#define MTK_BINARY19
+    //#define INIT_MTK_GPS        // initialize MTK GPS for using selected speed, 5Hz update rate and GGA & RMC sentence or binary settings
 
     //#define GPS_PROMINI_SERIAL    57600 // Will Autosense if GPS is connected when ardu boots
    
@@ -680,9 +680,10 @@
        Note the sign on declination it could be negative or positive (WEST or EAST) */
     //#define MAG_DECLINIATION  3.96f              //For Budapest Hungary.
     #define MAG_DECLINIATION  0.0f
+
+    #define GPS_LEAD_FILTER                      // Adds a forward predictive filterig to compensate gps lag. Code based on Jason Short's lead filter implementation
     
-    #define GPS_FILTERING                        // add a 5 element moving average filter to GPS coordinates, helps eliminate gps noise but adds latency comment out to disable
-    #define GPS_LOW_SPEED_D_FILTER               // below .5m/s speed ignore D term for POSHOLD_RATE, theoretically this also removed D term induced noise commnent out to disable
+    //#define GPS_FILTERING                        // add a 5 element moving average filter to GPS coordinates, helps eliminate gps noise but adds latency comment out to disable
     #define GPS_WP_RADIUS              200       // if we are within this distance to a waypoint then we consider it reached (distance is in cm)
     #define NAV_SLEW_RATE              30        // Adds a rate control to nav output, will smoothen out nav angle spikes
 
@@ -714,6 +715,14 @@
 
     /******************************   Logo settings     ***********************************/
       //#define SUPPRESS_OLED_I2C_128x64LOGO  // suppress display of OLED logo to save memory
+
+    /* double font height for better readability. Reduces visible #lines by half.
+     * The lower part of each page is accessible under the name of shifted keyboard letter :
+     * 1 - ! , 2 - @ , 3 - # , 4 - $ , 5 - % , 6 - ^ , 7 - & , 8 - * , 9 - (
+     * You must add both to your lcd.telemetry.* sequences
+     *
+     */
+      //#define DISPLAY_FONT_DSIZE //currently only aplicable for OLED_I2C_128x64
 
     /* style of display - AUTODETECTED via LCD_ setting - only activate to override defaults */
       //#define DISPLAY_2LINES
@@ -795,7 +804,7 @@
   /********************************************************************/
     //#define BUZZER
     //#define RCOPTIONSBEEP         // uncomment this if you want the buzzer to beep at any rcOptions change on channel Aux1 to Aux4
-    //#define ARMEDTIMEWARNING 330  // Trigger an alarm after a certain time of being armed [s] to save you lipo (if your TX does not have a countdown)
+    //#define ARMEDTIMEWARNING 330  // (*) Trigger an alarm after a certain time of being armed [s] to save you lipo (if your TX does not have a countdown)
     //#define PILOTLAMP             //Uncomment if you are using a X-Arcraft Pilot Lamp
 
   /********************************************************************/
@@ -807,12 +816,12 @@
        vbat = [0;1023]*16/VBATSCALE
        must be associated with #define BUZZER ! */
     //#define VBAT              // uncomment this line to activate the vbat code
-    #define VBATSCALE     131 // (*) change this value if readed Battery voltage is different than real voltage
-    #define VBATNOMINAL   126 // 12,6V full battery nominal voltage
-    #define VBATLEVEL1_3S 107 // (*) 10,7V
-    #define VBATLEVEL2_3S  99 // (*) 9.9V
-    #define VBATLEVEL_CRIT 93 // (*) 9.3V - critical condition: if vbat ever goes below this value, permanent alarm is triggered
-    #define NO_VBAT       16  // (*) Avoid beeping without any battery
+    #define VBATSCALE       131 // (*) change this value if readed Battery voltage is different than real voltage
+    #define VBATNOMINAL     126 // 12,6V full battery nominal voltage - only used for lcd.telemetry
+    #define VBATLEVEL_WARN1 107 // (*) 10,7V
+    #define VBATLEVEL_WARN2  99 // (*) 9.9V
+    #define VBATLEVEL_CRIT   93 // (*) 9.3V - critical condition: if vbat ever goes below this value, permanent alarm is triggered
+    #define NO_VBAT          16  // (*) Avoid beeping without any battery
 
 
   /********************************************************************/
@@ -855,6 +864,22 @@
   #define ALTHOLD_FAST_THROTTLE_CHANGE
 
   /********************************************************************/
+  /****           altitude variometer                              ****/
+  /********************************************************************/
+
+    /* enable to get audio feedback upon rising/falling copter/plane.
+     * Requires a working baro.
+     * For now, Output gets sent to an enabled vt100 terminal program over the serial line.
+     * choice of two methods (enable either one or both)
+     * method 1 : use short term movement from baro ( bigger code size)
+     * method 2 : use long term observation of altitude from baro (smaller code size)
+     */
+    //#define VARIOMETER 12            // possible values: 12 = methods 1 & 2 ; 1 = method 1 ; 2 = method 2
+    //#define SUPPRESS_VARIOMETER_UP   // if no signaling for up movement is desired
+    //#define SUPPRESS_VARIOMETER_DOWN // if no signaling for down movement is desired
+    //#define VARIOMETER_SINGLE_TONE   // use only one tone (BEL); neccessary for non-patched vt100 terminals
+
+  /********************************************************************/
   /****           baord naming                                     ****/
   /********************************************************************/
 
@@ -871,7 +896,7 @@
     #define BOARD_NAME "MultiWii   V-.--"
     //                  123456789.123456
 
-    /****      Support multiple configuration profile in EEPROM   ****/
+  /*************      Support multiple configuration profiles in EEPROM     ************/
     //#define MULTIPLE_CONFIGURATION_PROFILES
 
 /*************************************************************************************************/
@@ -956,8 +981,9 @@
 
     /* to log values like max loop time and others to come
        logging values are visible via LCD config
-       set to 2, if you want more values,
-       set to 3 for additional powerconsumption on a per motor basis (this uses the big array and is a memory hog, if POWERMETER <> PM_SOFT) */
+       set to 1, enable 'R' option to reset values, max current, max altitude
+       set to 2, adds min/max cycleTimes
+       set to 3, adds additional powerconsumption on a per motor basis (this uses the big array and is a memory hog, if POWERMETER <> PM_SOFT) */
     //#define LOG_VALUES 1
 
     /* to add debugging code
@@ -994,7 +1020,7 @@
        example: with cycle time of approx 3ms, do action every 6*3ms=18ms
        value must be [1; 65535] */
     #define LCD_TELEMETRY_FREQ 23       // to send telemetry data over serial 23 <=> 60ms <=> 16Hz (only sending interlaced, so 8Hz update rate)
-    #define LCD_TELEMETRY_AUTO_FREQ 667 // to step to next telemetry page 667 <=> 2s
+    #define LCD_TELEMETRY_AUTO_FREQ 967 // to step to next telemetry page 967 <=> 3s
     #define PSENSORFREQ 6               // to read hardware powermeter sensor 6 <=> 18ms
     #define VBATFREQ PSENSORFREQ        // to read battery voltage - keep equal to PSENSORFREQ unless you know what you are doing
 

@@ -39,7 +39,7 @@ void readEEPROM() {
     if (tmp>0) y = 100-conf.thrMid8;
     if (tmp<0) y = conf.thrMid8;
     lookupThrottleRC[i] = 10*conf.thrMid8 + tmp*( 100-conf.thrExpo8+(int32_t)conf.thrExpo8*(tmp*tmp)/(y*y) )/10; // [0;1000]
-    lookupThrottleRC[i] = MINTHROTTLE + (int32_t)(MAXTHROTTLE-MINTHROTTLE)* lookupThrottleRC[i]/1000;            // [0;1000] -> [MINTHROTTLE;MAXTHROTTLE]
+    lookupThrottleRC[i] = conf.minthrottle + (int32_t)(MAXTHROTTLE-conf.minthrottle)* lookupThrottleRC[i]/1000;            // [0;1000] -> [conf.minthrottle;MAXTHROTTLE]
   }
 
   #if defined(POWERMETER)
@@ -70,6 +70,9 @@ void readEEPROM() {
   #ifdef POWERMETER_SOFT
      conf.pleveldivsoft = conf.pleveldiv;
   #endif
+  #if defined(ARMEDTIMEWARNING)
+    ArmedTimeWarningMicroSeconds = (conf.armedtimewarning *1000000);
+  #endif
 }
 
 void writeGlobalSet(uint8_t b) {
@@ -98,9 +101,9 @@ void writeParams(uint8_t b) {
 }
 
 void LoadDefaults() {
-  conf.P8[ROLL]  = 40;  conf.I8[ROLL] = 30; conf.D8[ROLL]  = 23;
-  conf.P8[PITCH] = 40; conf.I8[PITCH] = 30; conf.D8[PITCH] = 23;
-  conf.P8[YAW]   = 85;  conf.I8[YAW]  = 45;  conf.D8[YAW]  = 0;
+  conf.P8[ROLL]     = 40;  conf.I8[ROLL]    = 30; conf.D8[ROLL]     = 23;
+  conf.P8[PITCH]    = 40; conf.I8[PITCH]    = 30; conf.D8[PITCH]    = 23;
+  conf.P8[YAW]      = 85;  conf.I8[YAW]     = 45;  conf.D8[YAW]     = 0;
   conf.P8[PIDALT]   = 50; conf.I8[PIDALT]   = 20; conf.D8[PIDALT]   = 30;
   
   conf.P8[PIDPOS]  = POSHOLD_P * 100;     conf.I8[PIDPOS]    = POSHOLD_I * 100;       conf.D8[PIDPOS]    = 0;
@@ -108,9 +111,9 @@ void LoadDefaults() {
   conf.P8[PIDNAVR] = NAV_P * 10;          conf.I8[PIDNAVR]   = NAV_I * 100;           conf.D8[PIDNAVR]   = NAV_D * 1000;
 
   conf.P8[PIDLEVEL] = 70; conf.I8[PIDLEVEL] = 10; conf.D8[PIDLEVEL] = 100;
-  conf.P8[PIDMAG] = 40;
+  conf.P8[PIDMAG]   = 40;
   
-  conf.P8[PIDVEL] = 0;  conf.I8[PIDVEL] = 0;  conf.D8[PIDVEL] = 0;
+  conf.P8[PIDVEL] = 0;      conf.I8[PIDVEL] = 0;    conf.D8[PIDVEL] = 0;
   
   conf.rcRate8 = 90; conf.rcExpo8 = 65;
   conf.rollPitchRate = 0;
@@ -148,8 +151,8 @@ void LoadDefaults() {
   #endif
   #ifdef VBAT
     conf.vbatscale = VBATSCALE;
-    conf.vbatlevel1_3s = VBATLEVEL1_3S;
-    conf.vbatlevel2_3s = VBATLEVEL2_3S;
+    conf.vbatlevel_warn1 = VBATLEVEL_WARN1;
+    conf.vbatlevel_warn2 = VBATLEVEL_WARN2;
     conf.vbatlevel_crit = VBATLEVEL_CRIT;
     conf.no_vbat = NO_VBAT;
   #endif
@@ -165,5 +168,9 @@ void LoadDefaults() {
   #ifdef MMGYRO
     conf.mmgyro = MMGYRO;
   #endif
+  #if defined(ARMEDTIMEWARNING)
+    conf.armedtimewarning = ARMEDTIMEWARNING;
+  #endif
+  conf.minthrottle = MINTHROTTLE;
   writeParams(0); // this will also (p)reset checkNewConf with the current version number again.
 }
