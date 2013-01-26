@@ -775,6 +775,7 @@ static lcd_param_def_t __VB = {&LTU8, 1, 1, 0};
 static lcd_param_def_t __L = {&LTU8, 0, 1, 0};
 static lcd_param_def_t __FS = {&LTU8, 1, 1, 0};
 static lcd_param_def_t __SE = {&LTU16, 0, 1, 10};
+static lcd_param_def_t __SE1 = {&LTU16, 0, 1, 1};
 static lcd_param_def_t __ST = {&LTS16, 0, 1, 10};
 static lcd_param_def_t __AUX1 = {&LAUX1, 0, 1, 1};
 static lcd_param_def_t __AUX2 = {&LAUX2, 0, 1, 8};
@@ -853,6 +854,7 @@ const char PROGMEM lcd_param_text51 [] = "AUX headfr";
 const char PROGMEM lcd_param_text52 [] = "AUX buzzer";
 const char PROGMEM lcd_param_text53 [] = "AUX vario ";
 const char PROGMEM lcd_param_text54 [] = "AUX calib ";
+const char PROGMEM lcd_param_text55 [] = "AUX govern";
 // 53 to 61 reserved
 #endif
 #ifdef HELI_120_CCPM //                  0123456789
@@ -913,6 +915,11 @@ const char PROGMEM lcd_param_text121 [] = "MMGYRO    ";
 const char PROGMEM lcd_param_text131 [] = "MINTHROTLE";
 #if defined(ARMEDTIMEWARNING)
 const char PROGMEM lcd_param_text132 [] = "ArmedTWarn";
+#endif
+#if defined(GOVERNOR_P)
+const char PROGMEM lcd_param_text133 [] = "Govern   P";
+const char PROGMEM lcd_param_text134 [] = "Govern   D";
+const char PROGMEM lcd_param_text135 [] = "Govern Rpm";
 #endif
 //                                         0123456789
 
@@ -1059,6 +1066,14 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
       &lcd_param_text54, &conf.activate[BOXCALIB],&__AUX4,
     #endif
   #endif
+#ifdef GOVERNOR_P
+  &lcd_param_text55, &conf.activate[BOXGOV],&__AUX1,
+  &lcd_param_text55, &conf.activate[BOXGOV],&__AUX2,
+  #ifndef SUPPRESS_LCD_CONF_AUX34
+    &lcd_param_text55, &conf.activate[BOXGOV],&__AUX3,
+    &lcd_param_text55, &conf.activate[BOXGOV],&__AUX4,
+  #endif
+#endif
 #endif //lcd.conf.aux
 
 #ifdef LOG_VALUES
@@ -1093,7 +1108,7 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
   &lcd_param_text33, &pMeter[PMOTOR_SUM], &__PS,
   &lcd_param_text34, &conf.powerTrigger1, &__PT,
   #ifdef POWERMETER_HARD
-    &lcd_param_text111, &conf.psensornull, &__SE,
+    &lcd_param_text111, &conf.psensornull, &__SE1,
     &lcd_param_text114, &conf.pint2ma, &__PT,
   #endif
   //&lcd_param_text112, &conf.pleveldivsoft, &__SE, // gets computed automatically
@@ -1127,6 +1142,12 @@ PROGMEM const void * const lcd_param_ptr_table [] = {
   &lcd_param_text76, &conf.servoTrim[6], &__ST,
   &lcd_param_text75, &conf.servoTrim[5], &__ST,
 #endif
+#ifdef GOVERNOR_P
+  &lcd_param_text133, &conf.governorP, &__D,
+  &lcd_param_text134, &conf.governorD, &__D,
+  &lcd_param_text135, &conf.governorR, &__P,
+#endif
+
 #ifdef GYRO_SMOOTHING
   &lcd_param_text80, &conf.Smoothing[0], &__D,
   &lcd_param_text81, &conf.Smoothing[1], &__D,
@@ -1598,6 +1619,9 @@ static char checkboxitemNames[][4] = {
     #ifdef INFLIGHT_ACC_CALIBRATION
       "Cal",
     #endif
+    #ifdef GOVERNOR_P
+      "Gov",
+    #endif
   ""};
 void output_checkboxitems() {
   for (uint8_t i=0; i<CHECKBOXITEMS; i++ ) {
@@ -1867,7 +1891,7 @@ void lcd_telemetry() {
     case '1':
     {
       static uint8_t index = 0;
-      linenr = (index++ % 7) + 1;
+      linenr = (index++ % 8) + 1;
       LCDsetLine(linenr);
       switch (linenr + POSSIBLE_OFFSET) { // not really linenumbers
         case 1:// V
@@ -1876,22 +1900,21 @@ void lcd_telemetry() {
         case 2:// mAh
           output_mAh();
           break;
-        case 4:// errors or checkboxstatus
+        case 4:// errors or ...
           if (failsafeEvents || (i2c_errors_count>>1)) { // errors
             // ignore i2c==1 because of bma020-init
             LCDalarmAndReverse();
             output_fails();
             LCDattributesOff();
-          } else { // checkboxstatus
-            //LCDsetLine(linenr++);
-            #ifdef BUZZER
-              if (isBuzzerON()) { LCDalarmAndReverse(); } // buzzer on? then add some blink for attention
+          } else { // ... armed time
+            #ifdef ARMEDTIMEWARNING
+              uint16_t ats = armedTime / 1000000;
+              if (ats > conf.armedtimewarning) { LCDattributesReverse(); }
+              LCDbar(7, (ats < conf.armedtimewarning ? (((conf.armedtimewarning-ats+1)*100)/(conf.armedtimewarning+1)) : 0 ));
+              LCDattributesOff();
+              LCDprint(' ');
+              print_uptime(ats);
             #endif
-            strcpy_P(line1,PSTR(".   .   .   .   "));
-            LCDprintChar(line1);
-            LCDsetLine(linenr); // go to beginning of same line again
-            output_checkboxitems();
-            LCDattributesOff();
           }
           break;
         case 6:// height
@@ -1904,15 +1927,9 @@ void lcd_telemetry() {
              }
            #endif
            break;
-        case 5:// uptime, uptime_armed, eeprom set#
-          LCDprintChar("U"); print_uptime(millis() / 1000 );
-          strcpy_P(line1,PSTR(" - A")); line1[1] = digit1(global_conf.currentSet);
-          #if defined(ARMEDTIMEWARNING)
-            if (alarmArray[5] == 1) { LCDattributesReverse(); } // armedtimewarning is active
-          #endif
-          LCDprintChar(line1);
-          LCDattributesOff();
-          print_uptime(armedTime / 1000000);
+        case 8:// uptime, eeprom set#
+          strcpy_P(line1,PSTR("Up ")); LCDprintChar(line1); print_uptime(millis() / 1000 );
+          strcpy_P(line1,PSTR("  Cset -")); line1[7] = digit1(global_conf.currentSet); LCDprintChar(line1);
           break;
         case 3:// Vmin
            output_Vmin();
@@ -1922,6 +1939,16 @@ void lcd_telemetry() {
             fill_line2_AmaxA();
             LCDprintChar(line2);
           #endif
+          break;
+        case 5: // checkboxstatus
+          #ifdef BUZZER
+            if (isBuzzerON()) { LCDalarmAndReverse(); } // buzzer on? then add some blink for attention
+          #endif
+          strcpy_P(line1,PSTR(".   .   .   .   "));
+          LCDprintChar(line1);
+          LCDsetLine(linenr); // go to beginning of same line again
+          output_checkboxitems();
+          LCDattributesOff();
           break;
       }
       LCDcrlf();
@@ -2218,3 +2245,66 @@ void toggle_telemetry(uint8_t t) {
   if (telemetry == t) telemetry = 0; else {telemetry = t; LCDclear();}
 }
 #endif //  LCD_TELEMETRY
+
+#ifdef LOG_PERMANENT
+  void dumpPLog(uint8_t full) {
+    LCDclear(); LCDnextline();
+    if (full) {
+      #ifdef DEBUG
+        LCDprintChar("LastOff  "); LCDprintChar(plog.running ? "KO" : "ok");  LCDnextline();
+        LCDprintChar("#arm   "); lcdprint_int16(plog.arm); LCDnextline();
+        LCDprintChar("#disarm"); lcdprint_int16(plog.disarm); LCDnextline();
+        LCDprintChar("last[s]"); lcdprint_int16(plog.armed_time/1000000); LCDnextline();
+        LCDprintChar("#fail@dis"); lcdprint_int16(plog.failsafe); LCDnextline();
+        LCDprintChar("#i2c@dis "); lcdprint_int16(plog.i2c); LCDnextline();
+        //            0123456789012345
+      #endif
+    }
+    LCDprintChar("#On      "); lcdprint_int16(plog.start); LCDnextline();
+    LCDprintChar("Life[min]"); lcdprint_int16(plog.lifetime/60); LCDnextline();
+    /*strcpy_P(line2,PSTR("Fail --- i2c ---"));
+    line2[5] = digit100(plog.failsafe);
+    line2[6] = digit10(plog.failsafe);
+    line2[7] = digit1(plog.failsafe);
+    line2[13] = digit100(plog.i2c);
+    line2[14] = digit10(plog.i2c);
+    line2[15] = digit1(plog.i2c);
+    LCDprintChar(line2); LCDnextline();*/
+    delay(4000);
+    #ifdef LOG_PERMANENT_SERVICE_LIFETIME
+      serviceCheckPLog();
+    #endif
+    LCDclear();
+  }
+  void LCDnextline() {
+    #if ( defined(DISPLAY_MULTILINE) )
+      static uint8_t lnr = 0;
+      lnr++;
+      if (lnr > (MULTILINE_PRE+MULTILINE_POST)) {
+        lnr = 1;
+        delay(4000);
+        LCDclear();
+      }
+      LCDsetLine(lnr);
+    #else
+      #if (! (defined(LCD_TTY)  ) )
+        delay(600);
+      #endif
+      LCDprintChar("\r\n");
+    #endif
+  }
+
+  #ifdef LOG_PERMANENT_SERVICE_LIFETIME
+  void serviceCheckPLog() {
+    if ( (!f.ARMED) && (plog.lifetime > LOG_PERMANENT_SERVICE_LIFETIME) ){
+      for (uint8_t i = 0; i<max(1, min(9,(plog.lifetime-LOG_PERMANENT_SERVICE_LIFETIME)>>10 )); i++) {
+        LCDprintChar("SERVICE lifetime"); LCDnextline();
+        blinkLED(5,200,5);
+        delay(5000);
+      }
+      alarmArray[7] = 3;
+    }
+  }
+  #endif // LOG_PERMANENT_SERVICE_LIFETIME
+
+#endif // LOG_PERMANENT

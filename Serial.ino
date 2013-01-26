@@ -307,6 +307,9 @@ void evaluateCommand() {
                  #if defined(INFLIGHT_ACC_CALIBRATION)
                    rcOptions[BOXCALIB]<<BOXCALIB |
                  #endif
+                 #if defined(GOVERNOR_P)
+                   rcOptions[BOXGOV]<<BOXGOV |
+                 #endif
                  f.ARMED<<BOXARM);
        serialize8(global_conf.currentSet);   // current setting
      break;
@@ -440,6 +443,7 @@ void evaluateCommand() {
         GPS_home[LON] = read32();
         read32();                       // future: to set altitude
         read8();                        // future: to set nav flag
+        f.GPS_HOME_MODE = 0;            // with this flag, GPS_set_next_wp will be called in the next RC loop
       }
      }
      headSerialReply(0);
@@ -500,6 +504,11 @@ void evaluateOtherData(uint8_t sr) {
     case 's':
     case 'S':
       if (!f.ARMED) configurationLoop();
+      break;
+    #endif
+    #ifdef LOG_PERMANENT_SHOW_AT_L
+    case 'L':
+      if (!f.ARMED) dumpPLog(1);
       break;
     #endif
     #if defined(LCD_TELEMETRY) && defined(LCD_TEXTSTAR)

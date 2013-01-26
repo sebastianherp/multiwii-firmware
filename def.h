@@ -1294,6 +1294,24 @@
   #undef INTERNAL_I2C_PULLUPS 
 #endif
 
+#if defined(RCNet_FC) 
+  #define MPU6050 
+  #define MS561101BA 
+  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+  #undef INTERNAL_I2C_PULLUPS 
+  //servo pins on RCNet FC board are at pins 38,39,40
+  #define SERVO_1_PINMODE            pinMode(40,OUTPUT);        // TILT_PITCH
+  #define SERVO_1_PIN_HIGH           PORTL |= 1<<5;
+  #define SERVO_1_PIN_LOW            PORTL &= ~(1<<5);
+  #define SERVO_2_PINMODE            pinMode(39,OUTPUT);        // TILT_ROLL 
+  #define SERVO_2_PIN_HIGH           PORTL |= 1<<4;
+  #define SERVO_2_PIN_LOW            PORTL &= ~(1<<4);
+  #define SERVO_3_PINMODE            pinMode(38,OUTPUT);        // CAM TRIG
+  #define SERVO_3_PIN_HIGH           PORTL |= 1<<3;
+  #define SERVO_3_PIN_LOW            PORTL &= ~(1<<3);
+#endif
+
 #if defined(OPENLRSv2MULTI)
   #define ITG3200
   #define ADXL345
@@ -1453,7 +1471,7 @@
   #define MULTITYPE 16      
 #elif defined(VTAIL4)
  #define MULTITYPE 17
- #elif defined(HEX6H)
+#elif defined(HEX6H)
  #define MULTITYPE 18
 #endif
 
@@ -1693,14 +1711,14 @@
 #endif
 #ifdef OVERRIDE_LEDPIN_PINMODE
   #define LEDPIN_PINMODE OVERRIDE_LEDPIN_PINMODE
-  #define LEDPIN_TOGGLE OVERRIDE_LEDPIN_TOGGLE
-  #define LEDPIN_OFFOVERRIDE_LEDPIN_OFF
-  #define LEDPIN_ON OVERRIDE_LEDPIN_ON
+  #define LEDPIN_TOGGLE  OVERRIDE_LEDPIN_TOGGLE
+  #define LEDPIN_OFF     OVERRIDE_LEDPIN_OFF
+  #define LEDPIN_ON      OVERRIDE_LEDPIN_ON
 #endif
 #ifdef OVERRIDE_BUZZERPIN_PINMODE
   #define BUZZERPIN_PINMODE OVERRIDE_BUZZERPIN_PINMODE
-  #define BUZZERPIN_ON OVERRIDE_BUZZERPIN_ON
-  #define BUZZERPIN_OFF OVERRIDE_BUZZERPIN_OFF
+  #define BUZZERPIN_ON      OVERRIDE_BUZZERPIN_ON
+  #define BUZZERPIN_OFF     OVERRIDE_BUZZERPIN_OFF
 #endif
 /**************************************************************************************/
 /***************               Error Checking Section              ********************/

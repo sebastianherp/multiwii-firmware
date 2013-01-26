@@ -90,6 +90,9 @@ enum box {
   #ifdef INFLIGHT_ACC_CALIBRATION
     BOXCALIB,
   #endif
+  #ifdef GOVERNOR_P
+    BOXGOV,
+  #endif
   CHECKBOXITEMS
 };
 
@@ -139,6 +142,9 @@ const char boxnames[] PROGMEM = // names for dynamic generation of config GUI
   #endif
   #ifdef INFLIGHT_ACC_CALIBRATION
     "CALIB;"
+  #endif
+  #ifdef GOVERNOR_P
+    "GOVERNOR;"
   #endif
 ;
 
@@ -370,9 +376,27 @@ static struct {
     uint16_t armedtimewarning;
   #endif
   int16_t minthrottle;
+  #ifdef GOVERNOR_P
+   int16_t governorP;
+   int16_t governorD;
+   int8_t  governorR;
+  #endif
   uint8_t  checksum;      // MUST BE ON LAST POSITION OF CONF STRUCTURE ! 
 } conf;
 
+#ifdef LOG_PERMANENT
+static struct {
+  uint16_t arm;           // #arm events
+  uint16_t disarm;        // #disarm events
+  uint16_t start;         // #powercycle/reset/initialize events
+  uint32_t armed_time ;   // copy of armedTime @ disarm
+  uint32_t lifetime;      // accumulated lifetime in seconds
+  uint16_t failsafe;      // #failsafe state @ disarm
+  uint16_t i2c;           // #i2c errs state @ disarm
+  uint8_t  running;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
+  uint8_t  checksum;      // MUST BE ON LAST POSITION OF CONF STRUCTURE !
+} plog;
+#endif
 
 // **********************
 // GPS common variables
@@ -485,6 +509,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
     static uint16_t psensorTimer = 0;
     if (! (++psensorTimer % PSENSORFREQ)) {
       pMeterRaw =  analogRead(PSENSORPIN);
+      //lcdprint_int16(pMeterRaw); LCDcrlf();
       powerValue = ( conf.psensornull > pMeterRaw ? conf.psensornull - pMeterRaw : pMeterRaw - conf.psensornull); // do not use abs(), it would induce implicit cast to uint and overrun
       if ( powerValue < 333) {  // only accept reasonable values. 333 is empirical
       #ifdef LCD_TELEMETRY
@@ -505,7 +530,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
       if (! (++vbatTimer % VBATFREQ)) {
         vbatRawArray[(ind++)%8] = analogRead(V_BATPIN);
         for (uint8_t i=0;i<8;i++) vbatRaw += vbatRawArray[i];
-        vbat = vbatRaw / (conf.vbatscale/2);                  // result is Vbatt in 0.1V steps
+        vbat = (vbatRaw*2) / conf.vbatscale; // result is Vbatt in 0.1V steps
       }
     #endif
     alarmHandler(); // external buzzer routine that handles buzzer events globally now
@@ -700,6 +725,18 @@ void setup() {
     led_flasher_set_sequence(LED_FLASHER_SEQUENCE);
   #endif
   f.SMALL_ANGLES_25=1; // important for gyro only conf
+  #ifdef LOG_PERMANENT
+    // read last stored set
+    readPLog();
+    plog.lifetime += plog.armed_time / 1000000;
+    plog.start++;         // #powercycle/reset/initialize events
+    // dump plog data to terminal
+    #ifdef LOG_PERMANENT_SHOW_AT_STARTUP
+      dumpPLog(0);
+    #endif
+    plog.armed_time = 0;   // lifetime in seconds
+    plog.running = 0;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
+  #endif
 
   debugmsg_append_str("initialization completed\n");
 }
@@ -721,13 +758,32 @@ void go_arm() {
            BAROaltMax = BaroAlt;
         #endif
       #endif
+      #ifdef LOG_PERMANENT
+        plog.arm++;           // #arm events
+        plog.running = 1;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
+        // write now.
+        writePLog();
+      #endif
     }
   } else if(!f.ARMED) { 
     blinkLED(2,255,1);
     alarmArray[8] = 1;
   }
 }
-
+void go_disarm() {
+  if (f.ARMED) {
+    f.ARMED = 0;
+    #ifdef LOG_PERMANENT
+      plog.disarm++;        // #disarm events
+      plog.armed_time = armedTime ;   // lifetime in seconds
+      if (failsafeEvents) plog.failsafe++;      // #acitve failsafe @ disarm
+      if (i2c_errors_count > 10) plog.i2c++;           // #i2c errs @ disarm
+      plog.running = 0;       // toggle @ arm & disarm to monitor for clean shutdown vs. powercut
+      // write now.
+      writePLog();
+    #endif
+  }
+}
 // ******** Main Loop *********
 void loop () {
   static uint8_t rcDelayCommand; // this indicates the number of time (multiple of RC measurement at 50Hz) the sticks must be maintained to run or switch off motors
@@ -762,13 +818,13 @@ void loop () {
         for(i=0; i<3; i++) rcData[i] = MIDRC;                               // after specified guard time after RC signal is lost (in 0.1sec)
         rcData[THROTTLE] = conf.failsafe_throttle;
         if (failsafeCnt > 5*(FAILSAFE_DELAY+FAILSAFE_OFF_DELAY)) {          // Turn OFF motors after specified Time (in 0.1sec)
-          f.ARMED = 0;   // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
+          go_disarm();     // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
           f.OK_TO_ARM = 0; // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
         }
         failsafeEvents++;
       }
       if ( failsafeCnt > (5*FAILSAFE_DELAY) && !f.ARMED) {  //Turn of "Ok To arm to prevent the motors from spinning after repowering the RX with low throttle and aux to arm
-          f.ARMED = 0;   // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
+          go_disarm();     // This will prevent the copter to automatically rearm if failsafe shuts it down and prevents
           f.OK_TO_ARM = 0; // to restart accidentely by just reconnect to the tx - you will have to switch off first to rearm
       }
       failsafeCnt++;
@@ -793,16 +849,16 @@ void loop () {
       errorGyroI[ROLL] = 0; errorGyroI[PITCH] = 0; errorGyroI[YAW] = 0;
       errorAngleI[ROLL] = 0; errorAngleI[PITCH] = 0;
       if (conf.activate[BOXARM] > 0) {             // Arming/Disarming via ARM BOX
-        if ( rcOptions[BOXARM] && f.OK_TO_ARM ) go_arm(); else if (f.ARMED) f.ARMED = 0;
+        if ( rcOptions[BOXARM] && f.OK_TO_ARM ) go_arm(); else if (f.ARMED) go_disarm();
       }
     }
     if(rcDelayCommand == 20) {
       if(f.ARMED) {                   // actions during armed
         #ifdef ALLOW_ARM_DISARM_VIA_TX_YAW
-          if (conf.activate[BOXARM] == 0 && rcSticks == THR_LO + YAW_LO + PIT_CE + ROL_CE) f.ARMED = 0;    // Disarm via YAW
+          if (conf.activate[BOXARM] == 0 && rcSticks == THR_LO + YAW_LO + PIT_CE + ROL_CE) go_disarm();    // Disarm via YAW
         #endif
         #ifdef ALLOW_ARM_DISARM_VIA_TX_ROLL
-          if (conf.activate[BOXARM] == 0 && rcSticks == THR_LO + YAW_CE + PIT_CE + ROL_LO) f.ARMED = 0;    // Disarm via ROLL
+          if (conf.activate[BOXARM] == 0 && rcSticks == THR_LO + YAW_CE + PIT_CE + ROL_LO) go_disarm();    // Disarm via ROLL
         #endif
       } else {                        // actions during not armed
         i=0;
@@ -1034,6 +1090,9 @@ void loop () {
             }
           }
         }
+      } else {
+        f.GPS_HOME_MODE = 0;
+        f.GPS_HOLD_MODE = 0;
       }
     #endif
     

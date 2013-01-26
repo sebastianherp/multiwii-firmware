@@ -100,7 +100,7 @@
       //#define AEROQUADSHIELDv2
       //#define ATAVRSBIN1      // Atmel 9DOF (Contribution by EOSBandi). requires 3.3V power.
       //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
-      //#define SIRIUSGPS       // Sirius Navigator IMU using external MAG on GPS board
+      //#define SIRIUSGPS       // Sirius Navigator IMU  using external MAG on GPS board            <- confirmed by Alex
       //#define SIRIUS600       // Sirius Navigator IMU  using the WMP for the gyro
       //#define MINIWII         // Jussi's MiniWii Flight Controller                                <- confirmed by Alex
       //#define MICROWII        // MicroWii 10DOF with ATmega32u4, MPU6050, HMC5883L, MS561101BA from http://flyduino.net/
@@ -138,7 +138,7 @@
       //#define MEGAWAP_V2_ADV
       //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085
       //#define HK_MultiWii_328P   // Also labeled "Hobbybro" on the back.  ITG3205 + BMA180 + BMP085 + NMC5583L + DSM2 Connector (Spektrum Satellite)  
-      
+      //#define RCNet_FC           // RCNet FC with MPU6050 and MS561101BA  http://www.rcnet.com
 
       
     /***************************    independent sensors    ********************************/
@@ -183,19 +183,19 @@
       //#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
       //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = Z;}
 
+      /* Board orientation shift */
+      /* If you have frame designed only for + mode and you cannot rotate FC phisycally for flying in X mode (or vice versa)
+       * you can use one of of this options for virtual sensors rotation by 45 deegres, then set type of multicopter according to flight mode.
+       * Check motors order and directions of motors rotation for matching with new front point!  Uncomment only one option! */
+      //#define SENSORS_TILT_45DEG_RIGHT        // rotate the FRONT 45 degres clockwise
+      //#define SENSORS_TILT_45DEG_LEFT         // rotate the FRONT 45 degres counterclockwise
+
+
 /*************************************************************************************************/
 /*****************                                                                 ***************/
 /****************  SECTION  2 - COPTER TYPE SPECIFIC OPTIONS                               *******/
 /*****************                                                                 ***************/
 /*************************************************************************************************/
-
-    /*************************    Board orientation shift    ************************/
-      /* If you have frame designed only for + mode and you cannot rotate FC phisycally for flying in X mode (or vice versa)
-         you can use one of of this options for virtual sensors rotation by 45 deegres, then set type of multicopter according to flight mode. 
-         Check motors order and directions of motors rotation for matching with new front point!  Uncomment only one option! */
-
-    //#define SENSORS_TILT_45DEG_RIGHT        // rotate the FRONT 45 degres clockwise
-    //#define SENSORS_TILT_45DEG_LEFT         // rotate the FRONT 45 degres counterclockwise 
 
   /********************************    TRI    *********************************/
     #define YAW_DIRECTION 1
@@ -273,6 +273,15 @@
     #define SERVO_OFFSET     {  0,   0,   0,  0,   0,   0,  0,   0 } // (*) Adjust Servo MID Offset & Swash angles
     // Selectable channels:=    ROLL,PITCH,THROTTLE,YAW,AUX1,AUX2,AUX3,AUX4
 
+    /* Governor: attempts to maintain rpm through pitch and voltage changes
+     * predictive approach: observe input signals and voltage and guess appropriate corrections.
+     * (the throttle curve must leave room for the governor, so 0-50-75-80-80 is ok, 0-50-95-100-100 is _not_ ok.
+     * Can be toggled via aux switch.
+     */
+    //#define GOVERNOR_P 7     // (*) proportional factor. Higher value -> higher throttle increase. Must be >=1; 0 = turn off
+    //#define GOVERNOR_D 4     // (*) decay timing. Higher value -> takes longer to return throttle to normal. Must be >=1;
+    //#define GOVERNOR_R 10    // (*) voltage impact correction scale in 0.1 units. Higher value -> more compensation for voltage drops. normal is value 10 <=> 1.0; 0 is off
+
   /***********************          Heli                           ***********************/
     /* Channel to control CollectivePitch */
     #define COLLECTIVE_PITCH      THROTTLE
@@ -281,9 +290,9 @@
     #define SERVO_ENDPOINT_LOW  {1020,1020,1020,1020,1020,1020,1020,1020};
 
     /* Limit the range of Collective Pitch. 100% is Full Range each way and position for Zero Pitch */
-    #define COLLECTIVE_RANGE { 80, 1500, 80 }// {Min%, ZeroPitch, Max%}.
+    #define COLLECTIVE_RANGE { 80, 0, 80 }// {Min%, ZeroPitch offset from 1500, Max%}.
     #define YAW_CENTER             1500      // Use servo[5] SERVO_ENDPOINT_HIGH/LOW for the endpoits.
-    #define YAWMOTOR                 0       // If a motor is useed as YAW Set to 1 else set to 0.
+    #define YAWMOTOR                 0       // If a motor is used as YAW Set to 1 else set to 0.
 
     /* Servo mixing for heli 120 Use 1/10 fractions (ex.5 = 5/10 = 1/2)
                          {Coll,Nick,Roll} */
@@ -296,7 +305,7 @@
     #define SERVO_DIRECTIONS { +1, -1, -1 } // -1 will invert servo
 
     /* Limit Maximum controll for Roll & Nick  in 0-100% */
-    #define CONTROLL_RANGE   { 100, 100 }      //  { ROLL,PITCH }
+    #define CONTROL_RANGE   { 100, 100 }      //  { ROLL,PITCH }
 
     /* use servo code to drive the throttle output. You want this for analog servo driving the throttle on IC engines.
        if inactive, throttle output will be treated as a motor output, so it can drive an ESC */
@@ -443,17 +452,17 @@
   /**************************************************************************************/
 
   /* only enable any of this if you must change the default pin assignment, e.g. your board does not have a specific pin */
-  /* you may need to change PINx and PORTx plus shift # according to the desired pin! */
-  //#define V_BATPIN                   A0 // instead of A3    // Analog PIN 3
+  /* you may need to change PINx and PORTx plus #shift according to the desired pin! */
+  //#define OVERRIDE_V_BATPIN                   A0 // instead of A3    // Analog PIN 3
 
-  //#define LEDPIN_PINMODE             pinMode (A1, OUTPUT); // use A1 instead of d13
-  //#define LEDPIN_TOGGLE              PINC |= 1<<1; // PINB |= 1<<5;     //switch LEDPIN state (digital PIN 13)
-  //#define LEDPIN_OFF                 PORTC &= ~(1<<1); // PORTB &= ~(1<<5);
-  //#define LEDPIN_ON                  PORTC |= 1<<1;    // was PORTB |= (1<<5);
+  //#define OVERRIDE_LEDPIN_PINMODE             pinMode (A1, OUTPUT); // use A1 instead of d13
+  //#define OVERRIDE_LEDPIN_TOGGLE              PINC |= 1<<1; // PINB |= 1<<5;     //switch LEDPIN state (digital PIN 13)
+  //#define OVERRIDE_LEDPIN_OFF                 PORTC &= ~(1<<1); // PORTB &= ~(1<<5);
+  //#define OVERRIDE_LEDPIN_ON                  PORTC |= 1<<1;    // was PORTB |= (1<<5);
 
-  //#define BUZZERPIN_PINMODE          pinMode (A2, OUTPUT); // use A2 instead of d8
-  //#define BUZZERPIN_ON               PORTC |= 1<<2 //PORTB |= 1;
-  //#define BUZZERPIN_OFF              PORTC &= ~(1<<2); //PORTB &= ~1;
+  //#define OVERRIDE_BUZZERPIN_PINMODE          pinMode (A2, OUTPUT); // use A2 instead of d8
+  //#define OVERRIDE_BUZZERPIN_ON               PORTC |= 1<<2 //PORTB |= 1;
+  //#define OVERRIDE_BUZZERPIN_OFF              PORTC &= ~(1<<2); //PORTB &= ~1;
 
 /*************************************************************************************************/
 /*****************                                                                 ***************/
@@ -617,10 +626,9 @@
   /**************************************************************************************/
 
     /* GPS using a SERIAL port
-       only available on MEGA boards (this might be possible on 328 based boards in the future)
        if enabled, define here the Arduino Serial port number and the UART speed
-       note: only the RX PIN is used, the GPS is not configured by multiwii
-       the GPS must be configured to output GGA and RMC NMEA sentences (which is generally the default conf for most GPS devices)
+       note: only the RX PIN is used in case of NMEA mode, the GPS is not configured by multiwii
+       in NMEA mode the GPS must be configured to output GGA and RMC NMEA sentences (which is generally the default conf for most GPS devices)
        at least 5Hz update rate. uncomment the first line to select the GPS serial port of the arduino */
     //#define GPS_SERIAL 2 // should be 2 for flyduino v2. It's the serial port number on arduino MEGA
     //#define GPS_BAUD   57600
@@ -985,6 +993,19 @@
        set to 2, adds min/max cycleTimes
        set to 3, adds additional powerconsumption on a per motor basis (this uses the big array and is a memory hog, if POWERMETER <> PM_SOFT) */
     //#define LOG_VALUES 1
+
+    /* Permanent logging to eeprom - survives (most) upgrades and parameter resets.
+     * used to track number of flights etc. over lifetime of controller board.
+     * Writes to end of eeprom - should not conflict with stored parameters yet.
+     * Logged values: accumulated lifetime, #powercycle/reset/initialize events, #arm events, #disarm events, last armedTime,
+     *                #failsafe@disarm, #i2c_errs@disarm
+     * To activate set to size of eeprom for your mcu: promini 328p: 1023 ; 2560: 4095.
+     * Enable one or more options to show the log
+     */
+    //#define LOG_PERMANENT 1023
+    //#define LOG_PERMANENT_SHOW_AT_STARTUP // enable to display log at startup
+    //#define LOG_PERMANENT_SHOW_AT_L // enable to display log when receiving 'L'
+    //#define LOG_PERMANENT_SERVICE_LIFETIME 36000 // in seconds; service alert at startup after 10 hours of armed time
 
     /* to add debugging code
        not needed and not recommended for normal operation
