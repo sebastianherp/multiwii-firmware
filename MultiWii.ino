@@ -43,111 +43,6 @@ enum pid {
   PIDITEMS
 };
 
-enum box {
-  #if ACC
-    BOXANGLE,
-    BOXHORIZON,
-  #endif
-  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
-    BOXBARO,
-  #endif
-  #if MAG
-    BOXMAG,
-  #endif
-  #if defined(SERVO_TILT) || defined(GIMBAL)  || defined(SERVO_MIX_TILT)
-    BOXCAMSTAB,
-  #endif
-  #if defined(CAMTRIG)
-    BOXCAMTRIG,
-  #endif
-  BOXARM,
-  #if GPS
-    BOXGPSHOME,
-    BOXGPSHOLD,
-  #endif
-  #if defined(FIXEDWING) || defined(HELICOPTER)
-    BOXPASSTHRU,
-  #endif
-  #if MAG
-    BOXHEADFREE,
-  #endif
-  #if defined(BUZZER)
-    BOXBEEPERON,
-  #endif
-  #if defined(LED_FLASHER)
-    BOXLEDMAX, // we want maximum illumination
-    BOXLEDLOW, // low/no lights
-  #endif
-  #if defined(LANDING_LIGHTS_DDR)
-    BOXLLIGHTS, // enable landing lights at any altitude
-  #endif
-  #if MAG
-    BOXHEADADJ, // acquire heading for HEADFREE mode
-  #endif
-  #ifdef VARIOMETER
-    BOXVARIO,
-  #endif
-  #ifdef INFLIGHT_ACC_CALIBRATION
-    BOXCALIB,
-  #endif
-  #ifdef GOVERNOR_P
-    BOXGOV,
-  #endif
-  CHECKBOXITEMS
-};
-
-const char boxnames[] PROGMEM = // names for dynamic generation of config GUI
-  #if ACC
-    "ANGLE;"
-    "HORIZON;"
-  #endif
-  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
-    "BARO;"
-  #endif
-  #if MAG
-    "MAG;"
-  #endif
-  #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
-    "CAMSTAB;"
-  #endif
-  #if defined(CAMTRIG)
-    "CAMTRIG;"
-  #endif
-  "ARM;"
-  #if GPS
-    "GPS HOME;"
-    "GPS HOLD;"
-  #endif
-  #if defined(FIXEDWING) || defined(HELICOPTER)
-    "PASSTHRU;"
-  #endif
-  #if MAG
-    "HEADFREE;"
-  #endif
-  #if defined(BUZZER)
-    "BEEPER;"
-  #endif
-  #if defined(LED_FLASHER)
-    "LEDMAX;"
-    "LEDLOW;"
-  #endif
-  #if defined(LANDING_LIGHTS_DDR)
-    "LLIGHTS;"
-  #endif
-  #if MAG
-    "HEADADJ;"  
-  #endif
-  #ifdef VARIOMETER
-    "VARIO;"
-  #endif
-  #ifdef INFLIGHT_ACC_CALIBRATION
-    "CALIB;"
-  #endif
-  #ifdef GOVERNOR_P
-    "GOVERNOR;"
-  #endif
-;
-
 const char pidnames[] PROGMEM =
   "ROLL;"
   "PITCH;"
@@ -161,6 +56,161 @@ const char pidnames[] PROGMEM =
   "VEL;"
 ;
 
+enum box {
+  BOXARM,
+  #if ACC
+    BOXANGLE,
+    BOXHORIZON,
+  #endif
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
+    BOXBARO,
+  #endif
+  #ifdef VARIOMETER
+    BOXVARIO,
+  #endif
+  #if MAG
+    BOXMAG,
+    BOXHEADFREE,
+    BOXHEADADJ, // acquire heading for HEADFREE mode
+  #endif
+  #if defined(SERVO_TILT) || defined(GIMBAL)  || defined(SERVO_MIX_TILT)
+    BOXCAMSTAB,
+  #endif
+  #if defined(CAMTRIG)
+    BOXCAMTRIG,
+  #endif
+  #if GPS
+    BOXGPSHOME,
+    BOXGPSHOLD,
+  #endif
+  #if defined(FIXEDWING) || defined(HELICOPTER)
+    BOXPASSTHRU,
+  #endif
+  #if defined(BUZZER)
+    BOXBEEPERON,
+  #endif
+  #if defined(LED_FLASHER)
+    BOXLEDMAX, // we want maximum illumination
+    BOXLEDLOW, // low/no lights
+  #endif
+  #if defined(LANDING_LIGHTS_DDR)
+    BOXLLIGHTS, // enable landing lights at any altitude
+  #endif
+  #ifdef INFLIGHT_ACC_CALIBRATION
+    BOXCALIB,
+  #endif
+  #ifdef GOVERNOR_P
+    BOXGOV,
+  #endif
+  #ifdef OSD_SWITCH
+    BOXOSD,
+  #endif
+  CHECKBOXITEMS
+};
+
+const char boxnames[] PROGMEM = // names for dynamic generation of config GUI
+  "ARM;"
+  #if ACC
+    "ANGLE;"
+    "HORIZON;"
+  #endif
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
+    "BARO;"
+  #endif
+  #ifdef VARIOMETER
+    "VARIO;"
+  #endif
+  #if MAG
+    "MAG;"
+    "HEADFREE;"
+    "HEADADJ;"  
+  #endif
+  #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
+    "CAMSTAB;"
+  #endif
+  #if defined(CAMTRIG)
+    "CAMTRIG;"
+  #endif
+  #if GPS
+    "GPS HOME;"
+    "GPS HOLD;"
+  #endif
+  #if defined(FIXEDWING) || defined(HELICOPTER)
+    "PASSTHRU;"
+  #endif
+  #if defined(BUZZER)
+    "BEEPER;"
+  #endif
+  #if defined(LED_FLASHER)
+    "LEDMAX;"
+    "LEDLOW;"
+  #endif
+  #if defined(LANDING_LIGHTS_DDR)
+    "LLIGHTS;"
+  #endif
+  #ifdef INFLIGHT_ACC_CALIBRATION
+    "CALIB;"
+  #endif
+  #ifdef GOVERNOR_P
+    "GOVERNOR;"
+  #endif
+  #ifdef OSD_SWITCH
+    "OSD SW;"
+  #endif
+;
+
+const uint8_t boxids[] PROGMEM = {// permanent IDs associated to boxes. This way, you can rely on an ID number to identify a BOX function.
+  0, //"ARM;"
+  #if ACC
+    1, //"ANGLE;"
+    2, //"HORIZON;"
+  #endif
+  #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
+    3, //"BARO;"
+  #endif
+  #ifdef VARIOMETER
+    4, //"VARIO;"
+  #endif
+  #if MAG
+    5, //"MAG;"
+    6, //"HEADFREE;"
+    7, //"HEADADJ;"  
+  #endif
+  #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
+    8, //"CAMSTAB;"
+  #endif
+  #if defined(CAMTRIG)
+    9, //"CAMTRIG;"
+  #endif
+  #if GPS
+    10, //"GPS HOME;"
+    11, //"GPS HOLD;"
+  #endif
+  #if defined(FIXEDWING) || defined(HELICOPTER)
+    12, //"PASSTHRU;"
+  #endif
+  #if defined(BUZZER)
+    13, //"BEEPER;"
+  #endif
+  #if defined(LED_FLASHER)
+    14, //"LEDMAX;"
+    15, //"LEDLOW;"
+  #endif
+  #if defined(LANDING_LIGHTS_DDR)
+    16, //"LLIGHTS;"
+  #endif
+  #ifdef INFLIGHT_ACC_CALIBRATION
+    17, //"CALIB;"
+  #endif
+  #ifdef GOVERNOR_P
+    18, //"GOVERNOR;"
+  #endif
+  #ifdef OSD_SWITCH
+    19, //"OSD_SWITCH;"
+  #endif
+};
+
+
 static uint32_t currentTime = 0;
 static uint16_t previousTime = 0;
 static uint16_t cycleTime = 0;     // this is the number in micro second to achieve a full loop, it can differ a little and is taken into account in the PID loop
@@ -168,17 +218,14 @@ static uint16_t calibratingA = 0;  // the calibration is done in the main loop. 
 static uint16_t calibratingB = 0;  // baro calibration = get new ground pressure value
 static uint16_t calibratingG;
 static uint16_t acc_1G;            // this is the 1G measured acceleration
-static int16_t  acc_25deg;
-static int16_t  headFreeModeHold;
+static uint16_t acc_25deg;
 static int16_t  gyroADC[3],accADC[3],accSmooth[3],magADC[3];
-static int16_t  heading,magHold;
+static int16_t  heading,magHold,headFreeModeHold; // [-180;+180]
 static uint8_t  vbat;                   // battery voltage in 0.1V steps
 static uint8_t  vbatMin = VBATNOMINAL;  // lowest battery voltage in 0.1V steps
 static uint8_t  rcOptions[CHECKBOXITEMS];
-static int32_t  BaroAlt;
-static int32_t  EstAlt;             // in cm
+static int32_t  BaroAlt,EstAlt,AltHold; // in cm
 static int16_t  BaroPID = 0;
-static int32_t  AltHold;
 static int16_t  errorAltitudeI = 0;
 static int16_t  vario = 0;              // variometer in cm/s
 
@@ -217,7 +264,7 @@ struct flags_struct {
   static uint16_t powerMax = 0;           // highest ever current;
   static int32_t  BAROaltMax;         // maximum value
 #endif
-#if defined(LOG_VALUES) || defined(LCD_TELEMETRY) || defined(ARMEDTIMEWARNING)
+#if defined(LOG_VALUES) || defined(LCD_TELEMETRY) || defined(ARMEDTIMEWARNING)  || defined(LOG_PERMANENT)
   static uint32_t armedTime = 0;
 #endif
 
@@ -281,10 +328,11 @@ static uint16_t intPowerMeterSum, intPowerTrigger1;
 static int16_t failsafeEvents = 0;
 volatile int16_t failsafeCnt = 0;
 
-static int16_t rcData[RC_CHANS];   // interval [1000;2000]
-static int16_t rcCommand[4];       // interval [1000;2000] for THROTTLE and [-500;+500] for ROLL/PITCH/YAW 
+static int16_t rcData[RC_CHANS];    // interval [1000;2000]
+static int16_t rcCommand[4];        // interval [1000;2000] for THROTTLE and [-500;+500] for ROLL/PITCH/YAW 
 static int16_t lookupPitchRollRC[6];// lookup table for expo & RC rate PITCH+ROLL
 static int16_t lookupThrottleRC[11];// lookup table for expo & mid THROTTLE
+static uint16_t rssi;               // range: [0;1023]
 
 #if defined(SPEKTRUM)
   volatile uint8_t  spekFrameFlags;
@@ -390,7 +438,7 @@ static struct {
   uint16_t disarm;        // #disarm events
   uint16_t start;         // #powercycle/reset/initialize events
   uint32_t armed_time ;   // copy of armedTime @ disarm
-  uint32_t lifetime;      // accumulated lifetime in seconds
+  uint32_t lifetime;      // sum (armed) lifetime in seconds
   uint16_t failsafe;      // #failsafe state @ disarm
   uint16_t i2c;           // #i2c errs state @ disarm
   uint8_t  running;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
@@ -461,7 +509,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
 
   #define BREAKPOINT 1500
   // PITCH & ROLL only dynamic PID adjustemnt,  depending on throttle value
-  if   (rcData[THROTTLE]<BREAKPOINT) {
+  if (rcData[THROTTLE]<BREAKPOINT) {
     prop2 = 100;
   } else {
     if (rcData[THROTTLE]<2000) {
@@ -535,7 +583,16 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
     #endif
     alarmHandler(); // external buzzer routine that handles buzzer events globally now
   #endif  
-  
+
+  #if defined(RX_RSSI)
+    static uint8_t sig = 0;
+    uint16_t rssiRaw = 0;
+    static uint16_t rssiRawArray[8];
+    rssiRawArray[(sig++)%8] = analogRead(RX_RSSI_PIN);
+    for (uint8_t i=0;i<8;i++) rssiRaw += rssiRawArray[i];
+    rssi = rssiRaw / 8;       
+  #endif
+
   if ( (calibratingA>0 && ACC ) || (calibratingG>0) ) { // Calibration phasis
     LEDPIN_TOGGLE;
   } else {
@@ -618,7 +675,7 @@ void annexCode() { // this code is excetuted at each loop and won't interfere wi
     if (cycleTime < cycleTimeMin) cycleTimeMin = cycleTime; // remember lowscore
   #endif
   if (f.ARMED)  {
-    #if defined(LCD_TELEMETRY) || defined(ARMEDTIMEWARNING)
+    #if defined(LCD_TELEMETRY) || defined(ARMEDTIMEWARNING) || defined(LOG_PERMANENT)
       armedTime += (uint32_t)cycleTime;
     #endif
     #if defined(VBAT)
@@ -674,9 +731,9 @@ void setup() {
   #endif
   previousTime = micros();
   #if defined(GIMBAL)
-   calibratingA = 400;
+   calibratingA = 512;
   #endif
-  calibratingG = 400;
+  calibratingG = 512;
   calibratingB = 200;  // 10 seconds init_delay + 200 * 25 ms = 15 seconds before ground pressure settles
   #if defined(POWERMETER)
     for(uint8_t i=0;i<=PMOTOR_SUM;i++)
@@ -735,7 +792,7 @@ void setup() {
       dumpPLog(0);
     #endif
     plog.armed_time = 0;   // lifetime in seconds
-    plog.running = 0;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
+    //plog.running = 0;       // toggle on arm & disarm to monitor for clean shutdown vs. powercut
   #endif
 
   debugmsg_append_str("initialization completed\n");
@@ -784,6 +841,27 @@ void go_disarm() {
     #endif
   }
 }
+void servos2Neutral() {
+  #ifdef TRI
+    servo[5] = 1500; // we center the yaw servo in conf mode
+    writeServos();
+  #endif
+  #ifdef FLYING_WING
+    servo[0]  = conf.wing_left_mid;
+    servo[1]  = conf.wing_right_mid;
+    writeServos();
+  #endif
+  #ifdef AIRPLANE
+    for(i = 4; i<7 ;i++) servo[i] = 1500;
+    writeServos();
+  #endif
+  #ifdef HELICOPTER
+    servo[5] = YAW_CENTER;
+    servo[3] = servo[4] = servo[6] = 1500;
+    writeServos();
+  #endif
+}
+
 // ******** Main Loop *********
 void loop () {
   static uint8_t rcDelayCommand; // this indicates the number of time (multiple of RC measurement at 50Hz) the sticks must be maintained to run or switch off motors
@@ -863,7 +941,7 @@ void loop () {
       } else {                        // actions during not armed
         i=0;
         if (rcSticks == THR_LO + YAW_LO + PIT_LO + ROL_CE) {    // GYRO calibration
-          calibratingG=400;
+          calibratingG=512;
           #if GPS 
             GPS_reset_home_position();
           #endif
@@ -897,19 +975,6 @@ void loop () {
           }
         #endif
         if (rcSticks == THR_LO + YAW_HI + PIT_HI + ROL_CE) {            // Enter LCD config
-          #ifdef TRI
-            servo[5] = 1500; // we center the yaw servo in conf mode
-            writeServos();
-          #endif
-          #ifdef FLYING_WING
-            servo[0]  = conf.wing_left_mid;
-            servo[1]  = conf.wing_right_mid;
-            writeServos();
-          #endif
-          #ifdef AIRPLANE
-            for(i = 4; i<7 ;i++) servo[i] = 1500;
-            writeServos();
-          #endif          
           #if defined(LCD_CONF)
             configurationLoop(); // beginning LCD configuration
           #endif
@@ -933,10 +998,13 @@ void loop () {
         #ifdef LCD_TELEMETRY_STEP
           else if (rcSticks == THR_LO + YAW_CE + PIT_HI + ROL_HI) {              // Telemetry next step
             telemetry = telemetryStepSequence[++telemetryStepIndex % strlen(telemetryStepSequence)];
-            LCDclear(); // make sure to clear away remnants
+            #ifdef OLED_I2C_128x64
+              if (telemetry != 0) i2c_OLED_init();
+            #endif
+            LCDclear();
           }
         #endif
-        else if (rcSticks == THR_HI + YAW_LO + PIT_LO + ROL_CE) calibratingA=400;     // throttle=max, yaw=left, pitch=min
+        else if (rcSticks == THR_HI + YAW_LO + PIT_LO + ROL_CE) calibratingA=512;     // throttle=max, yaw=left, pitch=min
         else if (rcSticks == THR_HI + YAW_HI + PIT_LO + ROL_CE) f.CALIBRATE_MAG = 1;  // throttle=max, yaw=right, pitch=min  
         i=0;
         if      (rcSticks == THR_HI + YAW_CE + PIT_HI + ROL_CE) {conf.angleTrim[PITCH]+=2; i=1;}
@@ -1079,7 +1147,6 @@ void loop () {
                 GPS_set_next_wp(&GPS_hold[LAT],&GPS_hold[LON]);
                 nav_mode = NAV_MODE_POSHOLD;
               #endif
-             
             }
           } else {
             f.GPS_HOLD_MODE = 0;
@@ -1093,6 +1160,9 @@ void loop () {
       } else {
         f.GPS_HOME_MODE = 0;
         f.GPS_HOLD_MODE = 0;
+        #if !defined(I2C_GPS)
+          nav_mode = NAV_MODE_NONE;
+        #endif
       }
     #endif
     
@@ -1179,7 +1249,7 @@ void loop () {
       int16_t dif = heading - magHold;
       if (dif <= - 180) dif += 360;
       if (dif >= + 180) dif -= 360;
-      if ( f.SMALL_ANGLES_25 ) rcCommand[YAW] -= dif*conf.P8[PIDMAG]/30;
+      if ( f.SMALL_ANGLES_25 ) rcCommand[YAW] -= dif*conf.P8[PIDMAG]>>5;
     } else magHold = heading;
   #endif
 
@@ -1238,32 +1308,33 @@ void loop () {
 
   //**** PITCH & ROLL & YAW PID ****
   int16_t prop;
-  prop = max(abs(rcCommand[PITCH]),abs(rcCommand[ROLL])); // range [0;500]
-  
+  prop = min(max(abs(rcCommand[PITCH]),abs(rcCommand[ROLL])),500); // range [0;500]
+
   for(axis=0;axis<3;axis++) {
     if ((f.ANGLE_MODE || f.HORIZON_MODE) && axis<2 ) { // MODE relying on ACC
       // 50 degrees max inclination
-      errorAngle = constrain(2*rcCommand[axis] + GPS_angle[axis],-500,+500) - angle[axis] + conf.angleTrim[axis]; //16 bits is ok here
-      PTermACC = (int32_t)errorAngle*conf.P8[PIDLEVEL]/100;                          // 32 bits is needed for calculation: errorAngle*P8[PIDLEVEL] could exceed 32768   16 bits is ok for result
+      errorAngle = constrain((rcCommand[axis]<<1) + GPS_angle[axis],-500,+500) - angle[axis] + conf.angleTrim[axis]; //16 bits is ok here
+      PTermACC = ((int32_t)errorAngle*conf.P8[PIDLEVEL])>>7;                          // 32 bits is needed for calculation: errorAngle*P8[PIDLEVEL] could exceed 32768   16 bits is ok for result
       PTermACC = constrain(PTermACC,-conf.D8[PIDLEVEL]*5,+conf.D8[PIDLEVEL]*5);
 
       errorAngleI[axis]     = constrain(errorAngleI[axis]+errorAngle,-10000,+10000);    // WindUp     //16 bits is ok here
       ITermACC              = ((int32_t)errorAngleI[axis]*conf.I8[PIDLEVEL])>>12;            // 32 bits is needed for calculation:10000*I8 could exceed 32768   16 bits is ok for result
     }
     if ( !f.ANGLE_MODE || f.HORIZON_MODE || axis == 2 ) { // MODE relying on GYRO or YAW axis
-      if (abs(rcCommand[axis])<350) error =          rcCommand[axis]*10*8/conf.P8[axis] ; // 16 bits is needed for calculation: 350*10*8 = 28000      16 bits is ok for result if P8>2 (P>0.2)
-                               else error = (int32_t)rcCommand[axis]*10*8/conf.P8[axis] ; // 32 bits is needed for calculation: 500*5*10*8 = 200000   16 bits is ok for result if P8>2 (P>0.2)
+      if (abs(rcCommand[axis])<500) error =          (rcCommand[axis]<<6)/conf.P8[axis] ; // 16 bits is needed for calculation: 500*64 = 32000      16 bits is ok for result if P8>5 (P>0.5)
+                               else error = ((int32_t)rcCommand[axis]<<6)/conf.P8[axis] ; // 32 bits is needed for calculation
+
       error -= gyroData[axis];
 
       PTermGYRO = rcCommand[axis];
       
-      errorGyroI[axis]  = constrain(errorGyroI[axis]+error,-16000,+16000);          // WindUp   16 bits is ok here
+      errorGyroI[axis]  = constrain(errorGyroI[axis]+error,-16000,+16000);         // WindUp   16 bits is ok here
       if (abs(gyroData[axis])>640) errorGyroI[axis] = 0;
-      ITermGYRO = (errorGyroI[axis]/125*conf.I8[axis])>>6;                                   // 16 bits is ok here 16000/125 = 128 ; 128*250 = 32000
+      ITermGYRO = ((errorGyroI[axis]>>7)*conf.I8[axis])>>6;                        // 16 bits is ok here 16000/125 = 128 ; 128*250 = 32000
     }
     if ( f.HORIZON_MODE && axis<2) {
-      PTerm = ((int32_t)PTermACC*(500-prop) + (int32_t)PTermGYRO*prop)/500;
-      ITerm = ((int32_t)ITermACC*(500-prop) + (int32_t)ITermGYRO*prop)/500;
+      PTerm = ((int32_t)PTermACC*(512-prop) + (int32_t)PTermGYRO*prop)>>9;         // the real factor should be 500, but 512 is ok
+      ITerm = ((int32_t)ITermACC*(512-prop) + (int32_t)ITermGYRO*prop)>>9;
     } else {
       if ( f.ANGLE_MODE && axis<2) {
         PTerm = PTermACC;
@@ -1274,17 +1345,15 @@ void loop () {
       }
     }
 
-    if (abs(gyroData[axis])<160) PTerm -=          gyroData[axis]*dynP8[axis]/10/8; // 16 bits is needed for calculation   160*200 = 32000         16 bits is ok for result
-                            else PTerm -= (int32_t)gyroData[axis]*dynP8[axis]/10/8; // 32 bits is needed for calculation   
+    PTerm -= ((int32_t)gyroData[axis]*dynP8[axis])>>6; // 32 bits is needed for calculation   
 
-    delta          = gyroData[axis] - lastGyro[axis];                               // 16 bits is ok here, the dif between 2 consecutive gyro reads is limited to 800
+    delta          = gyroData[axis] - lastGyro[axis];  // 16 bits is ok here, the dif between 2 consecutive gyro reads is limited to 800
     lastGyro[axis] = gyroData[axis];
     deltaSum       = delta1[axis]+delta2[axis]+delta;
     delta2[axis]   = delta1[axis];
     delta1[axis]   = delta;
  
-    if (abs(deltaSum)<640) DTerm = (deltaSum*dynD8[axis])>>5;                       // 16 bits is needed for calculation 640*50 = 32000           16 bits is ok for result 
-                      else DTerm = ((int32_t)deltaSum*dynD8[axis])>>5;              // 32 bits is needed for calculation
+    DTerm = ((int32_t)deltaSum*dynD8[axis])>>5;        // 32 bits is needed for calculation
                       
     axisPID[axis] =  PTerm + ITerm - DTerm;
   }

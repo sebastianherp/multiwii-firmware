@@ -102,6 +102,8 @@
       //#define SIRIUS          // Sirius Navigator IMU                                             <- confirmed by Alex
       //#define SIRIUSGPS       // Sirius Navigator IMU  using external MAG on GPS board            <- confirmed by Alex
       //#define SIRIUS600       // Sirius Navigator IMU  using the WMP for the gyro
+      //#define SIRIUS_AIR      // Sirius Navigator IMU 6050 32U4 from MultiWiiCopter.com
+      //#define SIRIUS_AIR_GPS  // Sirius Navigator IMU 6050 32U4 from MultiWiiCopter.com with GPS/MAG remote located
       //#define MINIWII         // Jussi's MiniWii Flight Controller                                <- confirmed by Alex
       //#define MICROWII        // MicroWii 10DOF with ATmega32u4, MPU6050, HMC5883L, MS561101BA from http://flyduino.net/
       //#define CITRUSv2_1      // CITRUS from qcrc.ca
@@ -139,6 +141,7 @@
       //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085
       //#define HK_MultiWii_328P   // Also labeled "Hobbybro" on the back.  ITG3205 + BMA180 + BMP085 + NMC5583L + DSM2 Connector (Spektrum Satellite)  
       //#define RCNet_FC           // RCNet FC with MPU6050 and MS561101BA  http://www.rcnet.com
+      //#define FLYDU_ULTRA   // MEGA+10DOF+MT3339 FC
 
       
     /***************************    independent sensors    ********************************/
@@ -158,6 +161,7 @@
       //#define NUNCHACK  // if you want to use the nunckuk as a standalone I2C ACC without WMP
       //#define LIS3LV02
       //#define LSM303DLx_ACC
+      //#define MMA8451Q
 
       /* I2C barometer */
       //#define BMP085
@@ -178,10 +182,10 @@
       /* ADC accelerometer */ // for 5DOF from sparkfun, uses analog PIN A1/A2/A3
       //#define ADCACC
 
-      /* individual sensor orientation */
-      //#define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
-      //#define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
-      //#define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = Z;}
+      /* enforce your individual sensor orientation - even overrides board specific defaults */
+      //#define FORCE_ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
+      //#define FORCE_GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
+      //#define FORCE_MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = Z;}
 
       /* Board orientation shift */
       /* If you have frame designed only for + mode and you cannot rotate FC phisycally for flying in X mode (or vice versa)
@@ -321,8 +325,19 @@
      #define DUALCOPTER_SERVO {1,1} //Pitch,Roll
     /* Use  SERVO_OFFSET and SERVO_RATES in Heli and Airplane section for centering and endpoints */
 
-
-
+  /***********************      your individual mixing     ***********************/
+    /* if you want to override an existing entry in the mixing table, you may want to avoid esditing the
+     * mixTable() function for every version again and again. Then you must
+     * 1) enable the correct copter type which resembles correct number of motors&servos
+     * 2) create a file with your choice of name which contains all the mixing code for motors and servos.
+     *    To get an idea, look at mixTable() function
+     * 3) enable your mixing code with this define; replace filename with your chosen name
+     *    (if you needed this info then probably this is not for you; start with an existing copter type and
+     *    predefined mixing table entry)
+     * 4) optionally limit the 'leave headroom for gyro correction' to the first N motors - useful for unequal motors combinations
+     */
+    //#define MY_PRIVATE_MIXING "filename.h"
+    //#define LEAVE_HEADROOM_FOR_MOTORS 4 // leave room for gyro corrrections only for first 4 motors
 
 /*************************************************************************************************/
 /*****************                                                                 ***************/
@@ -607,6 +622,9 @@
        (allready done if the option RCAUXPIN12 is selected) */
     //#define DISABLE_POWER_PIN
 
+  /*******************************    OSD Switch    *************************************/
+    // This adds a box that can be interpreted by OSD in activation status (to switch on/off the overlay for instance)
+  //#define OSD_SWITCH
 
   /**************************************************************************************/
   /***********************                  TX-related         **************************/
@@ -721,7 +739,9 @@
       //#define LCD_LCD03       // I2C LCD: LCD03, which is i2c
       //#define OLED_I2C_128x64 // I2C LCD: OLED http://www.multiwii.com/forum/viewtopic.php?f=7&t=1350
 
-    /******************************   Logo settings     ***********************************/
+    /******************************   Display settings   ***********************************/
+      #define LCD_SERIAL_PORT 0    // must be 0 on Pro Mini and single serial boards; Set to your choice on any Mega based board
+
       //#define SUPPRESS_OLED_I2C_128x64LOGO  // suppress display of OLED logo to save memory
 
     /* double font height for better readability. Reduces visible #lines by half.
@@ -806,6 +826,9 @@
     //#define SUPPRESS_TELEMETRY_PAGE_7
     //#define SUPPRESS_TELEMETRY_PAGE_8
     //#define SUPPRESS_TELEMETRY_PAGE_9
+
+    //#define RX_RSSI
+    //#define RX_RSSI_PIN A3
 
   /********************************************************************/
   /****                             Buzzer                         ****/
@@ -913,7 +936,7 @@
 /*****************                                                                 ***************/
 /*************************************************************************************************/
 
-  /************ EXperimental: force a stable, fixated (high) cycle time       **********/
+  /************ Experimental: force a stable, fixated (high) cycle time       **********/
     /* when activated, the displayed cycle time in GUI will not be correct.
      * Tunable via LCD config menu.
      * value of 0 turns the feature off.
@@ -959,29 +982,23 @@
     //#define MEGA_HW_PWM_SERVOS
 
   /********************************************************************/
-  /****           IMU complimentary filter tuning                  ****/
+  /****           Serial command handling - MSP and other          ****/
   /********************************************************************/
 
-    /* Set the Low Pass Filter factor for ACC
-       Increasing this value would reduce ACC noise (visible in GUI), but would increase ACC lag time
-       Comment this out if you want to set a specific coeff (non default)*/
-    //#define ACC_LPF_FACTOR 100
+    /* to reduce memory footprint, it is possible to suppress handling of serial commands.
+     * This does _not_ affect handling of RXserial, Spektrum or GPS. Those will not be affected and still work the same.
+     * Enable either one or both of the following options  */
 
-    /* Set the Low Pass Filter factor for Magnetometer
-       Increasing this value would reduce Magnetometer noise (not visible in GUI), but would increase Magnetometer lag time
-       Comment this out if you want to set a specific coeff (non default)*/
-    //#define MG_LPF_FACTOR 4
+    /* Remove handling of all commands of the New MultiWii Serial Protocol.
+     * This will disable use of the GUI, winGUI, android apps and any other program that makes use of the MSP.
+     * You must find another way (like LCD_CONF) to tune the parameters or live with the defaults.
+     * If you run a LCD/OLED via i2c or serial/Bluetooth, this is safe to use */
+    //#define SUPPRESS_ALL_SERIAL_MSP // saves approx 2700 bytes
 
-    /* Set the Gyro Weight for Gyro/Acc complementary filter
-       Increasing this value would reduce and delay Acc influence on the output of the filter
-       Comment this out if you want to set a specific coeff (non default)*/
-    //#define GYR_CMPF_FACTOR 400.0f
-
-    /* Set the Gyro Weight for Gyro/Magnetometer complementary filter
-       Increasing this value would reduce and delay Magnetometer influence on the output of the filter
-       Comment this out if you want to set a specific coeff (non default)*/
-    //#define GYR_CMPFM_FACTOR 200.0f
-
+    /* Remove handling of other serial commands.
+     * This includes navigating via serial the lcd.configuration menu, lcd.telemetry and permanent.log .
+     * Navigating via stick inputs on tx is not affected and will work the same.  */
+    //#define SUPPRESS_OTHER_SERIAL_COMMANDS // saves  approx 0 to 100 bytes, depending on features enabled
 
   /********************************************************************/
   /****           diagnostics                                      ****/
@@ -1005,6 +1022,7 @@
     //#define LOG_PERMANENT 1023
     //#define LOG_PERMANENT_SHOW_AT_STARTUP // enable to display log at startup
     //#define LOG_PERMANENT_SHOW_AT_L // enable to display log when receiving 'L'
+    //#define LOG_PERMANENT_SHOW_AFTER_CONFIG // enable to display log after exiting LCD config menu
     //#define LOG_PERMANENT_SERVICE_LIFETIME 36000 // in seconds; service alert at startup after 10 hours of armed time
 
     /* to add debugging code
