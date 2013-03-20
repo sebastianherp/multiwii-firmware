@@ -141,7 +141,8 @@
       //#define HK_MultiWii_SE_V2  // Hobbyking board with MPU6050 + HMC5883L + BMP085
       //#define HK_MultiWii_328P   // Also labeled "Hobbybro" on the back.  ITG3205 + BMA180 + BMP085 + NMC5583L + DSM2 Connector (Spektrum Satellite)  
       //#define RCNet_FC           // RCNet FC with MPU6050 and MS561101BA  http://www.rcnet.com
-      //#define FLYDU_ULTRA   // MEGA+10DOF+MT3339 FC
+      //#define RCNet_FC_GPS       // RCNet FC with MPU6050 + MS561101BA + HMC5883L + UBLOX GPS http://www.rcnet.com
+      //#define FLYDU_ULTRA        // MEGA+10DOF+MT3339 FC
 
       
     /***************************    independent sensors    ********************************/
@@ -183,9 +184,9 @@
       //#define ADCACC
 
       /* enforce your individual sensor orientation - even overrides board specific defaults */
-      //#define FORCE_ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  =  Y; accADC[PITCH]  = -X; accADC[YAW]  = Z;}
-      //#define FORCE_GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] = -Y; gyroADC[PITCH] =  X; gyroADC[YAW] = Z;}
-      //#define FORCE_MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = Z;}
+      //#define FORCE_ACC_ORIENTATION(X, Y, Z)  {imu.accADC[ROLL]  =  Y; imu.accADC[PITCH]  = -X; imu.accADC[YAW]  = Z;}
+      //#define FORCE_GYRO_ORIENTATION(X, Y, Z) {imu.gyroADC[ROLL] = -Y; imu.gyroADC[PITCH] =  X; imu.gyroADC[YAW] = Z;}
+      //#define FORCE_MAG_ORIENTATION(X, Y, Z)  {imu.magADC[ROLL]  =  X; imu.magADC[PITCH]  =  Y; imu.magADC[YAW]  = Z;}
 
       /* Board orientation shift */
       /* If you have frame designed only for + mode and you cannot rotate FC phisycally for flying in X mode (or vice versa)
@@ -327,14 +328,8 @@
 
   /***********************      your individual mixing     ***********************/
     /* if you want to override an existing entry in the mixing table, you may want to avoid esditing the
-     * mixTable() function for every version again and again. Then you must
-     * 1) enable the correct copter type which resembles correct number of motors&servos
-     * 2) create a file with your choice of name which contains all the mixing code for motors and servos.
-     *    To get an idea, look at mixTable() function
-     * 3) enable your mixing code with this define; replace filename with your chosen name
-     *    (if you needed this info then probably this is not for you; start with an existing copter type and
-     *    predefined mixing table entry)
-     * 4) optionally limit the 'leave headroom for gyro correction' to the first N motors - useful for unequal motors combinations
+     * mixTable() function for every version again and again. 
+     * howto: http://www.multiwii.com/wiki/index.php?title=Config.h#Individual_Mixing
      */
     //#define MY_PRIVATE_MIXING "filename.h"
     //#define LEAVE_HEADROOM_FOR_MOTORS 4 // leave room for gyro corrrections only for first 4 motors
@@ -718,15 +713,7 @@
   /***********************        LCD/OLED - display settings       *********************/
   /**************************************************************************************/
 
-    /* uncomment this line if you plan to use a LCD or OLED */
-      //#define LCD_CONF
-
-    /* to include setting the aux switches for AUX1 -> AUX4 via LCD */
-      //#define LCD_CONF_AUX
-
-    /* if program gets too large (>32k), need to exclude some functionality */
-      /* uncomment to suppress some unwanted aux3 aux4 items in config menu (only useful if LCD_CONF_AUX is enabled) */
-      //#define SUPPRESS_LCD_CONF_AUX34
+    /* http://www.multiwii.com/wiki/index.php?title=Extra_features#LCD_.2F_OLED */
 
     /*****************************   The type of LCD     **********************************/
       /* choice of LCD attached for configuration and telemetry, see notes below */
@@ -748,7 +735,6 @@
      * The lower part of each page is accessible under the name of shifted keyboard letter :
      * 1 - ! , 2 - @ , 3 - # , 4 - $ , 5 - % , 6 - ^ , 7 - & , 8 - * , 9 - (
      * You must add both to your lcd.telemetry.* sequences
-     *
      */
       //#define DISPLAY_FONT_DSIZE //currently only aplicable for OLED_I2C_128x64
 
@@ -767,56 +753,38 @@
       #define LCD_MENU_SAVE_EXIT 's'
       #define LCD_MENU_ABORT 'x'
 
-    /* To use an LCD03 for configuration:
-       http://www.robot-electronics.co.uk/htm/Lcd03tech.htm
-       Remove the jumper on its back to set i2c control.
-       VCC to +5V VCC (pin1 from top)
-       SDA - Pin A4 Mini Pro - Pin 20 Mega (pin2 from top)
-       SCL - Pin A5 Mini Pro - Pin 21 Mega (pin3 from top)
-       GND to Ground (pin4 from top)*/
-
-    /* To use an Eagle Tree Power Panel LCD for configuration:
-       White wire  to Ground
-       Red wire    to +5V VCC (or to the WMP power pin, if you prefer to reset everything on the bus when WMP resets)
-       Yellow wire to SDA - Pin A4 Mini Pro - Pin 20 Mega
-       Brown wire  to SCL - Pin A5 Mini Pro - Pin 21 Mega */
-
-    /* Cat's whisker LCD_TEXTSTAR LCD
-       Pleae note this display needs a full 4 wire connection to (+5V, Gnd, RXD, TXD )
-       Configure display as follows: 115K baud, and TTL levels for RXD and TXD, terminal mode
-       NO rx / tx line reconfiguration, use natural pins.
-       The four buttons sending 'A', 'B', 'C', 'D' are supported for configuration navigation and request of telemetry pages 1-4 */
-
-
   /**************************************************************************************/
-  /***********************                telemetry            **************************/
+  /***********************      LCD configuration menu         **************************/
   /**************************************************************************************/
 
-    /* to monitor system values (battery level, loop time etc. with LCD enable this
-       note: for now you must send single characters to request  different pages
-       Buttons toggle request for page on/off
-       The active page on the LCD does get updated automatically
-       Easy to use with Terminal application or display like LCD - if available uses the 4 preconfigured buttons  to send 'A', 'B', 'C', 'D' */
+    /* uncomment this line if you plan to use a LCD or OLED for tweaking parameters
+     * http://www.multiwii.com/wiki/index.php?title=Extra_features#Configuration_Menu */
+      //#define LCD_CONF
+
+    /* to include setting the aux switches for AUX1 -> AUX4 via LCD */
+      //#define LCD_CONF_AUX
+
+    /* optional exclude some functionality - uncomment to suppress some unwanted telemetry pages */
+      //#define SUPPRESS_LCD_CONF_AUX34
+
+  /**************************************************************************************/
+  /***********************      LCD       telemetry            **************************/
+  /**************************************************************************************/
+
+    /* to monitor system values (battery level, loop time etc. with LCD 
+     * http://www.multiwii.com/wiki/index.php?title=LCD_Telemetry */
+
     /********************************    Activation     ***********************************/
     //#define LCD_TELEMETRY
 
-    /* to enable automatic hopping between a choice of telemetry pages uncomment this.
-       This may be useful if your LCD has no buttons or the sending is broken
-       hopping is activated and deactivated in unarmed mode with throttle=low & roll=left & pitch=forward
-       set it to the sequence of telemetry pages you want to see
-       2 line displays support pages 1-9
-       multiline displays support pages 1-5 */
+    /* to enable automatic hopping between a choice of telemetry pages uncomment this. */
     //#define LCD_TELEMETRY_AUTO "123452679" // pages 1 to 9 in ascending order
     //#define LCD_TELEMETRY_AUTO  "212232425262729" // strong emphasis on page 2
 
-    /* same as above, but manual stepping sequence; requires 
-       stick input (throttle=low & roll=right & pitch=forward) to 
-       step through each defined telemetry page
-       First page of the sequence gets loaded at startup to allow non-interactive display */
-    //#define LCD_TELEMETRY_STEP "0123456789" // should contain a 0 to allow switching off. First page of sequence gets loaded upon startup
+    /* manual stepping sequence; first page of the sequence gets loaded at startup to allow non-interactive display */
+    //#define LCD_TELEMETRY_STEP "0123456789" // should contain a 0 to allow switching off.
 
-    /* if program gets too large (>32k), need to exclude some functionality
-       uncomment to suppress some unwanted telemetry pages (only useful if telemetry is enabled) */
+    /* optional exclude some functionality - uncomment to suppress some unwanted telemetry pages */
     //#define SUPPRESS_TELEMETRY_PAGE_1
     //#define SUPPRESS_TELEMETRY_PAGE_2
     //#define SUPPRESS_TELEMETRY_PAGE_3
@@ -827,6 +795,9 @@
     //#define SUPPRESS_TELEMETRY_PAGE_8
     //#define SUPPRESS_TELEMETRY_PAGE_9
 
+  /********************************************************************/
+  /****                             RSSI                           ****/
+  /********************************************************************/
     //#define RX_RSSI
     //#define RX_RSSI_PIN A3
 
@@ -982,23 +953,31 @@
     //#define MEGA_HW_PWM_SERVOS
 
   /********************************************************************/
-  /****           Serial command handling - MSP and other          ****/
+  /****           Memory savings                                   ****/
   /********************************************************************/
 
-    /* to reduce memory footprint, it is possible to suppress handling of serial commands.
+    /* options to counter the general shortage of memory, like with leonardo m32u4 and others */
+
+    /**** suppress handling of serial commands.***
      * This does _not_ affect handling of RXserial, Spektrum or GPS. Those will not be affected and still work the same.
      * Enable either one or both of the following options  */
 
-    /* Remove handling of all commands of the New MultiWii Serial Protocol.
-     * This will disable use of the GUI, winGUI, android apps and any other program that makes use of the MSP.
-     * You must find another way (like LCD_CONF) to tune the parameters or live with the defaults.
-     * If you run a LCD/OLED via i2c or serial/Bluetooth, this is safe to use */
-    //#define SUPPRESS_ALL_SERIAL_MSP // saves approx 2700 bytes
+      /* Remove handling of all commands of the New MultiWii Serial Protocol.
+       * This will disable use of the GUI, winGUI, android apps and any other program that makes use of the MSP.
+       * You must find another way (like LCD_CONF) to tune the parameters or live with the defaults.
+       * If you run a LCD/OLED via i2c or serial/Bluetooth, this is safe to use */
+      //#define SUPPRESS_ALL_SERIAL_MSP // saves approx 2700 bytes
 
-    /* Remove handling of other serial commands.
-     * This includes navigating via serial the lcd.configuration menu, lcd.telemetry and permanent.log .
-     * Navigating via stick inputs on tx is not affected and will work the same.  */
-    //#define SUPPRESS_OTHER_SERIAL_COMMANDS // saves  approx 0 to 100 bytes, depending on features enabled
+      /* Remove handling of other serial commands.
+       * This includes navigating via serial the lcd.configuration menu, lcd.telemetry and permanent.log .
+       * Navigating via stick inputs on tx is not affected and will work the same.  */
+      //#define SUPPRESS_OTHER_SERIAL_COMMANDS // saves  approx 0 to 100 bytes, depending on features enabled
+
+    /**** suppress keeping the defaults for initial setup and reset in the code.
+     * This requires a manual initial setup of the PIDs etc. or load and write from defaults.mwi;
+     * reset in GUI will not work on PIDs
+     */
+    //#define SUPPRESS_DEFAULTS_FROM_GUI
 
   /********************************************************************/
   /****           diagnostics                                      ****/
