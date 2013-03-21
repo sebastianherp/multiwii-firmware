@@ -14,6 +14,9 @@ March  2013     V2.2
 #include "def.h"
 
 
+#include "MultiWii_HAL_AVR.h"
+
+
 #include <avr/pgmspace.h>
 #define  VERSION  221
 
@@ -210,6 +213,7 @@ const uint8_t boxids[] PROGMEM = {// permanent IDs associated to boxes. This way
   #endif
 };
 
+static MultiWii_HAL hal = MultiWii_HAL_AVR();
 
 static uint32_t currentTime = 0;
 static uint16_t previousTime = 0;
@@ -295,7 +299,6 @@ struct flags_struct {
   static uint32_t armedTime = 0;
 #endif
 
-static int16_t  i2c_errors_count = 0;
 static int16_t  annex650_overrun_count = 0;
 
 // **********************

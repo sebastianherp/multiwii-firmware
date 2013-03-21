@@ -67,8 +67,7 @@
     #define MINCOMMAND  1000
 
   /**********************************    I2C speed   ************************************/
-    #define I2C_SPEED 100000L     //100kHz normal mode, this value must be used for a genuine WMP
-    //#define I2C_SPEED 400000L   //400kHz fast mode, it works only with some WMP clones
+    #define I2C_FAST_CLOCK 1    //100kHz normal mode, this value must be used for a genuine WMP (undefine to use 400kHz fastmode
 
   /***************************    Internal i2c Pullups   ********************************/
     /* enable internal I2C pull ups (in most cases it is better to use external pullups) */

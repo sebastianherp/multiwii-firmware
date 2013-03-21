@@ -147,82 +147,8 @@ static uint32_t neutralizeTime = 0;
 // I2C general functions
 // ************************************************************************************************************
 
-void i2c_init(void) {
-  #if defined(INTERNAL_I2C_PULLUPS)
-    I2C_PULLUPS_ENABLE
-  #else
-    I2C_PULLUPS_DISABLE
-  #endif
-  TWSR = 0;                                    // no prescaler => prescaler = 1
-  TWBR = ((F_CPU / I2C_SPEED) - 16) / 2;       // change the I2C clock rate
-  TWCR = 1<<TWEN;                              // enable twi module, no interrupt
-}
-
-void i2c_rep_start(uint8_t address) {
-  TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN) ; // send REPEAT START condition
-  waitTransmissionI2C();                       // wait until transmission completed
-  TWDR = address;                              // send device address
-  TWCR = (1<<TWINT) | (1<<TWEN);
-  waitTransmissionI2C();                       // wail until transmission completed
-}
-
-void i2c_stop(void) {
-  TWCR = (1 << TWINT) | (1 << TWEN) | (1 << TWSTO);
-  //  while(TWCR & (1<<TWSTO));                // <- can produce a blocking state with some WMP clones
-}
-
-void i2c_write(uint8_t data ) {
-  TWDR = data;                                 // send data to the previously addressed device
-  TWCR = (1<<TWINT) | (1<<TWEN);
-  waitTransmissionI2C();
-}
-
-uint8_t i2c_read(uint8_t ack) {
-  TWCR = (1<<TWINT) | (1<<TWEN) | (ack? (1<<TWEA) : 0);
-  waitTransmissionI2C();
-  uint8_t r = TWDR;
-  if (!ack) i2c_stop();
-  return r;
-}
-
-uint8_t i2c_readAck() {
-  return i2c_read(1);
-}
-
-uint8_t i2c_readNak(void) {
-  return i2c_read(0);
-}
-
-void waitTransmissionI2C() {
-  uint16_t count = 255;
-  while (!(TWCR & (1<<TWINT))) {
-    count--;
-    if (count==0) {              //we are in a blocking state => we don't insist
-      TWCR = 0;                  //and we force a reset on TWINT register
-      neutralizeTime = micros(); //we take a timestamp here to neutralize the value during a short delay
-      i2c_errors_count++;
-      break;
-    }
-  }
-}
-
-size_t i2c_read_to_buf(uint8_t add, void *buf, size_t size) {
-  i2c_rep_start((add<<1) | 1);  // I2C read direction
-  size_t bytes_read = 0;
-  uint8_t *b = (uint8_t*)buf;
-  while (size--) {
-    /* acknowledge all but the final byte */
-    *b++ = i2c_read(size > 0);
-    /* TODO catch I2C errors here and abort */
-    bytes_read++;
-  }
-  return bytes_read;
-}
-
-size_t i2c_read_reg_to_buf(uint8_t add, uint8_t reg, void *buf, size_t size) {
-  i2c_rep_start(add<<1); // I2C write direction
-  i2c_write(reg);        // register selection
-  return i2c_read_to_buf(add, buf, size);
+void i2c_getSixRawADC(uint8_t add, uint8_t reg) {
+  hal.i2c->readRegToBuffer(add, reg, &rawADC, 6);
 }
 
 /* transform a series of bytes from big endian to little
@@ -240,23 +166,6 @@ void swap_endianness(void *buf, size_t size) {
     *from = *to;
     *to = tray;
   }
-}
-
-void i2c_getSixRawADC(uint8_t add, uint8_t reg) {
-  i2c_read_reg_to_buf(add, reg, &rawADC, 6);
-}
-
-void i2c_writeReg(uint8_t add, uint8_t reg, uint8_t val) {
-  i2c_rep_start(add<<1); // I2C write direction
-  i2c_write(reg);        // register selection
-  i2c_write(val);        // value to write in register
-  i2c_stop();
-}
-
-uint8_t i2c_readReg(uint8_t add, uint8_t reg) {
-  uint8_t val;
-  i2c_read_reg_to_buf(add, reg, &val, 1);
-  return val;
 }
 
 // ****************
@@ -554,7 +463,7 @@ void i2c_BMP085_Calculate() {
 uint8_t Baro_update() {                   // first UT conversion is started in init procedure
   if (currentTime < bmp085_ctx.deadline) return 0; 
   bmp085_ctx.deadline = currentTime+6000; // 1.5ms margin according to the spec (4.5ms T convetion time)
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, BMP085 is ok with this speed
+  hal.i2c->setFastClock();
   if (bmp085_ctx.state == 0) {
     i2c_BMP085_UT_Read(); 
     i2c_BMP085_UP_Start(); 
@@ -695,7 +604,7 @@ void i2c_MS561101BA_Calculate() {
 uint8_t Baro_update() {                            // first UT conversion is started in init procedure
   if (currentTime < ms561101ba_ctx.deadline) return 0; 
   ms561101ba_ctx.deadline = currentTime+10000;  // UT and UP conversion take 8.5ms so we do next reading after 10ms 
-  TWBR = ((F_CPU / 400000L) - 16) / 2;          // change the I2C clock rate to 400kHz, MS5611 is ok with this speed
+  hal.i2c->setFastClock();
   if (ms561101ba_ctx.state == 0) {
     i2c_MS561101BA_UT_Read(); 
     i2c_MS561101BA_UP_Start(); 
@@ -738,7 +647,7 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2;
+  hal.i2c->setFastClock();
   i2c_getSixRawADC(MMA7455_ADDRESS,0x00);
 
   ACC_ORIENTATION( ((int8_t(rawADC[1])<<8) | int8_t(rawADC[0])) ,
@@ -767,7 +676,7 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2;
+  hal.i2c->setFastClock();
   i2c_getSixRawADC(MMA8451Q_ADDRESS,0x00);
 
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])/32 ,
@@ -798,7 +707,7 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, ADXL435 is ok with this speed
+  hal.i2c->setFastClock();
   i2c_getSixRawADC(ADXL345_ADDRESS,0x32);
 
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0]) ,
@@ -850,7 +759,7 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2;  // Optional line.  Sensor is good for it in the spec.
+  hal.i2c->setFastClock();  // Optional line.  Sensor is good for it in the spec.
   i2c_getSixRawADC(BMA180_ADDRESS,0x02);
   //usefull info is on the 14 bits  [2-15] bits  /4 => [0-13] bits  /4 => 12 bit resolution
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])>>4 ,
@@ -888,7 +797,7 @@ void ACC_init(){
 }
 
 void ACC_getADC(){
-  TWBR = ((F_CPU / 400000L) - 16) / 2;
+  hal.i2c->setFastClock();
   i2c_getSixRawADC(0x38,0x02);
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])>>6 ,
                    ((rawADC[3]<<8) | rawADC[2])>>6 ,
@@ -911,7 +820,11 @@ void ACC_init() {
 }
 
 void ACC_getADC() {
-  TWBR = ((F_CPU / I2C_SPEED) - 16) / 2; // change the I2C clock rate. !! you must check if the nunchuk is ok with this freq
+  #if defined(I2C_FAST_CLOCK)
+    hal.i2c->setFastClock();
+  #elif
+    hal.i2c->setSlowClock();
+  #endif
   i2c_getSixRawADC(NUNCHACK_ADDRESS,0x00);
 
   ACC_ORIENTATION(  ( (rawADC[3]<<2)        + ((rawADC[5]>>4)&0x2) ) ,
@@ -934,7 +847,7 @@ void ACC_init(){
 }
 
 void ACC_getADC(){
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
   i2c_getSixRawADC(LIS3A,0x28+0x80);
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])>>2 ,
                    ((rawADC[3]<<8) | rawADC[2])>>2 ,
@@ -957,7 +870,7 @@ void ACC_init () {
 }
 
   void ACC_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2;
+  hal.i2c->setFastClock();
   i2c_getSixRawADC(0x18,0xA8);
 
   ACC_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])>>4 ,
@@ -999,7 +912,7 @@ void Gyro_init() {
 }
 
 void Gyro_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
   i2c_getSixRawADC(L3G4200D_ADDRESS,0x80|0x28);
 
   GYRO_ORIENTATION( ((rawADC[1]<<8) | rawADC[0])/20  ,
@@ -1034,7 +947,7 @@ void Gyro_init() {
 }
 
 void Gyro_getADC () {
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
   i2c_getSixRawADC(ITG3200_ADDRESS,0X1D);
   GYRO_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])>>2 , // range: +/- 8192; +/- 2000 deg/sec
                     ((rawADC[2]<<8) | rawADC[3])>>2 ,
@@ -1058,7 +971,7 @@ uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
   uint8_t axis;
   if ( currentTime < t ) return 0; //each read is spaced by 100ms
   t = currentTime + 100000;
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
   Device_Mag_getADC();
   imu.magADC[ROLL]  = imu.magADC[ROLL]  * magGain[ROLL];
   imu.magADC[PITCH] = imu.magADC[PITCH] * magGain[PITCH];
@@ -1321,15 +1234,15 @@ void Device_Mag_getADC() {
 #if defined(MPU6050)
 
 void Gyro_init() {
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
-  i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x80);             //PWR_MGMT_1    -- DEVICE_RESET 1
+  hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
+  hal.i2c->writeReg(MPU6050_ADDRESS, 0x6B, 0x80);             //PWR_MGMT_1    -- DEVICE_RESET 1
   delay(5);
-  i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x03);             //PWR_MGMT_1    -- SLEEP 0; CYCLE 0; TEMP_DIS 0; CLKSEL 3 (PLL with Z Gyro reference)
-  i2c_writeReg(MPU6050_ADDRESS, 0x1A, MPU6050_DLPF_CFG); //CONFIG        -- EXT_SYNC_SET 0 (disable input pin for data sync) ; default DLPF_CFG = 0 => ACC bandwidth = 260Hz  GYRO bandwidth = 256Hz)
-  i2c_writeReg(MPU6050_ADDRESS, 0x1B, 0x18);             //GYRO_CONFIG   -- FS_SEL = 3: Full scale set to 2000 deg/sec
+  hal.i2c->writeReg(MPU6050_ADDRESS, 0x6B, 0x03);             //PWR_MGMT_1    -- SLEEP 0; CYCLE 0; TEMP_DIS 0; CLKSEL 3 (PLL with Z Gyro reference)
+  hal.i2c->writeReg(MPU6050_ADDRESS, 0x1A, MPU6050_DLPF_CFG); //CONFIG        -- EXT_SYNC_SET 0 (disable input pin for data sync) ; default DLPF_CFG = 0 => ACC bandwidth = 260Hz  GYRO bandwidth = 256Hz)
+  hal.i2c->writeReg(MPU6050_ADDRESS, 0x1B, 0x18);             //GYRO_CONFIG   -- FS_SEL = 3: Full scale set to 2000 deg/sec
   // enable I2C bypass for AUX I2C
   #if defined(MAG)
-    i2c_writeReg(MPU6050_ADDRESS, 0x37, 0x02);           //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=1 ; CLKOUT_EN=0
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x37, 0x02);           //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=1 ; CLKOUT_EN=0
   #endif
 }
 
@@ -1342,7 +1255,7 @@ void Gyro_getADC () {
 }
 
 void ACC_init () {
-  i2c_writeReg(MPU6050_ADDRESS, 0x1C, 0x10);             //ACCEL_CONFIG  -- AFS_SEL=2 (Full Scale = +/-8G)  ; ACCELL_HPF=0   //note something is wrong in the spec.
+  hal.i2c->writeReg(MPU6050_ADDRESS, 0x1C, 0x10);             //ACCEL_CONFIG  -- AFS_SEL=2 (Full Scale = +/-8G)  ; ACCELL_HPF=0   //note something is wrong in the spec.
   //note: something seems to be wrong in the spec here. With AFS=2 1G = 4096 but according to my measurement: 1G=2048 (and 2048/8 = 256)
   //confirmed here: http://www.multiwii.com/forum/viewtopic.php?f=8&t=1080&start=10#p7480
   #if defined(FREEIMUv04)
@@ -1400,7 +1313,7 @@ void ACC_getADC () {
 #if defined(MPU3050)
 
 void Gyro_init() {
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz
+  hal.i2c->setFastClock()hal.i2c->setFastClock(); // change the I2C clock rate to 400kHz
   i2c_writeReg(MPU3050_ADDRESS, 0x3E, 0x80);             //PWR_MGMT_1    -- DEVICE_RESET 1
   delay(5);
   i2c_writeReg(MPU3050_ADDRESS, 0x3E, 0x03);             //PWR_MGMT_1    -- SLEEP 0; CYCLE 0; TEMP_DIS 0; CLKSEL 3 (PLL with Z Gyro reference)
@@ -1438,7 +1351,12 @@ void Gyro_init() {
 
 void Gyro_getADC() {
   uint8_t axis;
-  TWBR = ((F_CPU / I2C_SPEED) - 16) / 2; // change the I2C clock rate
+ 
+  #if defined(I2C_FAST_CLOCK)
+    hal.i2c->setFastClock();
+  #elif
+    hal.i2c->setSlowClock();
+  #endif
   i2c_getSixRawADC(WMP_ADDRESS_2,0x00);
 
   if (micros() < (neutralizeTime + NEUTRALIZE_DELAY)) {//we neutralize data in case of blocking+hard reset state
@@ -1641,7 +1559,7 @@ void i2c_srf08_discover() {
 void Sonar_update() {
   if (currentTime < srf08_ctx.deadline || (srf08_ctx.state==0 && f.ARMED)) return; 
   srf08_ctx.deadline = currentTime;
-  TWBR = ((F_CPU / 400000L) - 16) / 2; // change the I2C clock rate to 400kHz, SRF08 is ok with this speed
+  hal.i2c->setFastClock();
   switch (srf08_ctx.state) {
     case 0: 
       i2c_srf08_discover();
@@ -1710,7 +1628,11 @@ void initSensors() {
   delay(200);
   POWERPIN_ON;
   delay(100);
-  i2c_init();
+  #if defined(INTERNAL_I2C_PULLUPS)
+    hal.i2c->init(true);
+  #else
+    hal.i2c->init(false);
+  #endif
   delay(100);
   if (GYRO) Gyro_init();
   if (BARO) Baro_init();
