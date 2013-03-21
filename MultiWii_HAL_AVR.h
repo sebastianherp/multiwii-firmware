@@ -9,8 +9,6 @@
 #ifndef _MULTIWII_HAL_AVR_H
 #define _MULTIWII_HAL_AVR_H
 
-#include "MultiWii_HAL.h"
-
 #ifdef ARDUINO
     #if ARDUINO < 100
         #include "WProgram.h"
@@ -46,32 +44,22 @@
 #endif
 
 
-class MultiWii_HAL_AVR : public MultiWii_HAL {
-    public:
-        MultiWii_HAL_AVR();
-};
 
-class AVR_Driver_I2C : public Driver_I2C {
-	public:
-		void init(bool enablePullUps);
-		void writeReg(uint8_t add, uint8_t reg, uint8_t val);
-		uint8_t readReg(uint8_t add, uint8_t reg);
-		size_t readRegToBuffer(uint8_t add, uint8_t reg, void *buf, size_t size);
-		size_t readToBuffer(uint8_t add, void *buf, size_t size);
-		void setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
-		void setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
-		void stop();
-		void repStart(uint8_t address);
-		void write(uint8_t data);
-		uint8_t read(uint8_t ack);
-		uint8_t readAck();
-		uint8_t readNak();
-		
-	private:	
-		void waitTransmission();
-		
-		uint32_t neutralizeTime;
-};
+class MultiWii_HAL_AVR {
+  public:
+    static void i2c_init_pullups_enabled();
+    static void i2c_init_pullups_disabled();
+    static void i2c_setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
+    static void i2c_setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
+    static void i2c_stop();
+    static void i2c_repStart(uint8_t address);
+    static void i2c_write(uint8_t data);
+    static uint8_t i2c_read(uint8_t ack);
+    static int16_t i2c_errors_count;
+    
+  private:
+    static void i2c_waitTransmission();
 
+};
 
 #endif

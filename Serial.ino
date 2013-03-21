@@ -280,7 +280,7 @@ void evaluateCommand() {
        uint8_t set;
      } st;
      st.cycleTime        = cycleTime;
-     st.i2c_errors_count = hal.i2c->errors_count;
+     st.i2c_errors_count = HAL::i2c_errors_count;
      st.sensor           = ACC|BARO<<1|MAG<<2|GPS<<3|SONAR<<4;
      st.flag = 
                          #if ACC
