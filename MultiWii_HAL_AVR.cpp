@@ -10,16 +10,7 @@
 
 int16_t MultiWii_HAL_AVR::i2c_errors_count = 0;
 
-void MultiWii_HAL_AVR::i2c_init_pullups_enabled() {
-  I2C_PULLUPS_ENABLE
-  TWSR = 0;                                    // no prescaler => prescaler = 1
-  i2c_setSlowClock();						   // just set to always slow (sensors who can handle fast, set it accordingly)
-  //TWBR = ((F_CPU / I2C_SPEED) - 16) / 2;       // change the I2C clock rate
-  TWCR = 1<<TWEN;                              // enable twi module, no interrupt
-}
-
-void MultiWii_HAL_AVR::i2c_init_pullups_disabled() {
-  I2C_PULLUPS_DISABLE
+void MultiWii_HAL_AVR::i2c_init() {
   TWSR = 0;                                    // no prescaler => prescaler = 1
   i2c_setSlowClock();						   // just set to always slow (sensors who can handle fast, set it accordingly)
   //TWBR = ((F_CPU / I2C_SPEED) - 16) / 2;       // change the I2C clock rate

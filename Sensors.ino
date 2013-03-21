@@ -1669,10 +1669,11 @@ void initSensors() {
   POWERPIN_ON;
   delay(100);
   #if defined(INTERNAL_I2C_PULLUPS)
-    HAL::i2c_init_pullups_enabled();
+    I2C_PULLUPS_ENABLE
   #else
-    HAL::i2c_init_pullups_disabled();
+    I2C_PULLUPS_DISABLE
   #endif
+  HAL::i2c_init();  
   delay(100);
   if (GYRO) Gyro_init();
   if (BARO) Baro_init();

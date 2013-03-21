@@ -47,8 +47,7 @@
 
 class MultiWii_HAL_AVR {
   public:
-    static void i2c_init_pullups_enabled();
-    static void i2c_init_pullups_disabled();
+    static void i2c_init();
     static void i2c_setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
     static void i2c_setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
     static void i2c_stop();
