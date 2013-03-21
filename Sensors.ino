@@ -513,19 +513,19 @@ static struct {
 } ms561101ba_ctx;
 
 void i2c_MS561101BA_reset(){
-  i2c_writeReg(MS561101BA_ADDRESS, MS561101BA_RESET, 0);
+  hal.i2c->writeReg(MS561101BA_ADDRESS, MS561101BA_RESET, 0);
 }
 
 void i2c_MS561101BA_readCalibration(){
   union {uint16_t val; uint8_t raw[2]; } data;
   for(uint8_t i=0;i<6;i++) {
-    i2c_rep_start(MS561101BA_ADDRESS<<1);
-    i2c_write(0xA2+2*i);
+    hal.i2c->repStart(MS561101BA_ADDRESS<<1);
+    hal.i2c->write(0xA2+2*i);
     delay(10);
-    i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);//I2C read direction => 1
+    hal.i2c->repStart((MS561101BA_ADDRESS<<1) | 1);//I2C read direction => 1
     delay(10);
-    data.raw[1] = i2c_readAck();  // read a 16 bit register
-    data.raw[0] = i2c_readNak();
+    data.raw[1] = hal.i2c->readAck();  // read a 16 bit register
+    data.raw[0] = hal.i2c->readNak();
     ms561101ba_ctx.c[i+1] = data.val;
   }
 }
@@ -542,36 +542,36 @@ void  Baro_init() {
 
 // read uncompensated temperature value: send command first
 void i2c_MS561101BA_UT_Start() {
-  i2c_rep_start(MS561101BA_ADDRESS<<1);      // I2C write direction
-  i2c_write(MS561101BA_TEMPERATURE + OSR);  // register selection
-  i2c_stop();
+  hal.i2c->repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
+  hal.i2c->write(MS561101BA_TEMPERATURE + OSR);  // register selection
+  hal.i2c->stop();
 }
 
 // read uncompensated pressure value: send command first
 void i2c_MS561101BA_UP_Start () {
-  i2c_rep_start(MS561101BA_ADDRESS<<1);      // I2C write direction
-  i2c_write(MS561101BA_PRESSURE + OSR);     // register selection
-  i2c_stop();
+  hal.i2c->repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
+  hal.i2c->write(MS561101BA_PRESSURE + OSR);     // register selection
+  hal.i2c->stop();
 }
 
 // read uncompensated pressure value: read result bytes
 void i2c_MS561101BA_UP_Read () {
-  i2c_rep_start(MS561101BA_ADDRESS<<1);
-  i2c_write(0);
-  i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);
-  ms561101ba_ctx.up.raw[2] = i2c_readAck();
-  ms561101ba_ctx.up.raw[1] = i2c_readAck();
-  ms561101ba_ctx.up.raw[0] = i2c_readNak();
+  hal.i2c->repStart(MS561101BA_ADDRESS<<1);
+  hal.i2c->write(0);
+  hal.i2c->repStart((MS561101BA_ADDRESS<<1) | 1);
+  ms561101ba_ctx.up.raw[2] = hal.i2c->readAck();
+  ms561101ba_ctx.up.raw[1] = hal.i2c->readAck();
+  ms561101ba_ctx.up.raw[0] = hal.i2c->readNak();
 }
 
 // read uncompensated temperature value: read result bytes
 void i2c_MS561101BA_UT_Read() {
-  i2c_rep_start(MS561101BA_ADDRESS<<1);
-  i2c_write(0);
-  i2c_rep_start((MS561101BA_ADDRESS<<1) | 1);
-  ms561101ba_ctx.ut.raw[2] = i2c_readAck();
-  ms561101ba_ctx.ut.raw[1] = i2c_readAck();
-  ms561101ba_ctx.ut.raw[0] = i2c_readNak();
+  hal.i2c->repStart(MS561101BA_ADDRESS<<1);
+  hal.i2c->write(0);
+  hal.i2c->repStart((MS561101BA_ADDRESS<<1) | 1);
+  ms561101ba_ctx.ut.raw[2] = hal.i2c->readAck();
+  ms561101ba_ctx.ut.raw[1] = hal.i2c->readAck();
+  ms561101ba_ctx.ut.raw[0] = hal.i2c->readNak();
 }
 
 void i2c_MS561101BA_Calculate() {
@@ -1076,18 +1076,18 @@ void Mag_init() {
   bool bret=true;                // Error indicator
 
   delay(50);  //Wait before start
-  i2c_writeReg(MAG_ADDRESS, HMC58X3_R_CONFA, 0x010 + HMC_POS_BIAS); // Reg A DOR=0x010 + MS1,MS0 set to pos bias
+  hal.i2c->writeReg(MAG_ADDRESS, HMC58X3_R_CONFA, 0x010 + HMC_POS_BIAS); // Reg A DOR=0x010 + MS1,MS0 set to pos bias
 
   // Note that the  very first measurement after a gain change maintains the same gain as the previous setting. 
   // The new gain setting is effective from the second measurement and on.
 
-  i2c_writeReg(MAG_ADDRESS, HMC58X3_R_CONFB, 2 << 5);  //Set the Gain
-  i2c_writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
+  hal.i2c->writeReg(MAG_ADDRESS, HMC58X3_R_CONFB, 2 << 5);  //Set the Gain
+  hal.i2c->writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
   delay(100);
   getADC();  //Get one sample, and discard it
 
   for (uint8_t i=0; i<10; i++) { //Collect 10 samples
-    i2c_writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
+    hal.i2c->writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
     delay(100);
     getADC();   // Get the raw values in case the scales have already been changed.
                 
@@ -1104,9 +1104,9 @@ void Mag_init() {
   }
 
   // Apply the negative bias. (Same gain)
-  i2c_writeReg(MAG_ADDRESS,HMC58X3_R_CONFA, 0x010 + HMC_NEG_BIAS); // Reg A DOR=0x010 + MS1,MS0 set to negative bias.
+  hal.i2c->writeReg(MAG_ADDRESS,HMC58X3_R_CONFA, 0x010 + HMC_NEG_BIAS); // Reg A DOR=0x010 + MS1,MS0 set to negative bias.
   for (uint8_t i=0; i<10; i++) { 
-    i2c_writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
+    hal.i2c->writeReg(MAG_ADDRESS,HMC58X3_R_MODE, 1);
     delay(100);
     getADC();  // Get the raw values in case the scales have already been changed.
                 
@@ -1127,9 +1127,9 @@ void Mag_init() {
   magGain[2]=fabs(820.0*HMC58X3_Z_SELF_TEST_GAUSS*2.0*10.0/xyz_total[2]);
 
   // leave test mode
-  i2c_writeReg(MAG_ADDRESS ,HMC58X3_R_CONFA ,0x70 ); //Configuration Register A  -- 0 11 100 00  num samples: 8 ; output rate: 15Hz ; normal measurement mode
-  i2c_writeReg(MAG_ADDRESS ,HMC58X3_R_CONFB ,0x20 ); //Configuration Register B  -- 001 00000    configuration gain 1.3Ga
-  i2c_writeReg(MAG_ADDRESS ,HMC58X3_R_MODE  ,0x00 ); //Mode register             -- 000000 00    continuous Conversion Mode
+  hal.i2c->writeReg(MAG_ADDRESS ,HMC58X3_R_CONFA ,0x70 ); //Configuration Register A  -- 0 11 100 00  num samples: 8 ; output rate: 15Hz ; normal measurement mode
+  hal.i2c->writeReg(MAG_ADDRESS ,HMC58X3_R_CONFB ,0x20 ); //Configuration Register B  -- 001 00000    configuration gain 1.3Ga
+  hal.i2c->writeReg(MAG_ADDRESS ,HMC58X3_R_MODE  ,0x00 ); //Mode register             -- 000000 00    continuous Conversion Mode
   delay(100);
   magInit = 1;
 
@@ -1267,12 +1267,12 @@ void ACC_init () {
   #if defined(MPU6050_I2C_AUX_MASTER)
     //at this stage, the MAG is configured via the original MAG init function in I2C bypass mode
     //now we configure MPU as a I2C Master device to handle the MAG via the I2C AUX port (done here for HMC5883)
-    i2c_writeReg(MPU6050_ADDRESS, 0x6A, 0b00100000);       //USER_CTRL     -- DMP_EN=0 ; FIFO_EN=0 ; I2C_MST_EN=1 (I2C master mode) ; I2C_IF_DIS=0 ; FIFO_RESET=0 ; I2C_MST_RESET=0 ; SIG_COND_RESET=0
-    i2c_writeReg(MPU6050_ADDRESS, 0x37, 0x00);             //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=0 ; CLKOUT_EN=0
-    i2c_writeReg(MPU6050_ADDRESS, 0x24, 0x0D);             //I2C_MST_CTRL  -- MULT_MST_EN=0 ; WAIT_FOR_ES=0 ; SLV_3_FIFO_EN=0 ; I2C_MST_P_NSR=0 ; I2C_MST_CLK=13 (I2C slave speed bus = 400kHz)
-    i2c_writeReg(MPU6050_ADDRESS, 0x25, 0x80|MAG_ADDRESS);//I2C_SLV0_ADDR -- I2C_SLV4_RW=1 (read operation) ; I2C_SLV4_ADDR=MAG_ADDRESS
-    i2c_writeReg(MPU6050_ADDRESS, 0x26, MAG_DATA_REGISTER);//I2C_SLV0_REG  -- 6 data bytes of MAG are stored in 6 registers. First register address is MAG_DATA_REGISTER
-    i2c_writeReg(MPU6050_ADDRESS, 0x27, 0x86);             //I2C_SLV0_CTRL -- I2C_SLV0_EN=1 ; I2C_SLV0_BYTE_SW=0 ; I2C_SLV0_REG_DIS=0 ; I2C_SLV0_GRP=0 ; I2C_SLV0_LEN=3 (3x2 bytes)
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x6A, 0b00100000);       //USER_CTRL     -- DMP_EN=0 ; FIFO_EN=0 ; I2C_MST_EN=1 (I2C master mode) ; I2C_IF_DIS=0 ; FIFO_RESET=0 ; I2C_MST_RESET=0 ; SIG_COND_RESET=0
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x37, 0x00);             //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=0 ; CLKOUT_EN=0
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x24, 0x0D);             //I2C_MST_CTRL  -- MULT_MST_EN=0 ; WAIT_FOR_ES=0 ; SLV_3_FIFO_EN=0 ; I2C_MST_P_NSR=0 ; I2C_MST_CLK=13 (I2C slave speed bus = 400kHz)
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x25, 0x80|MAG_ADDRESS);//I2C_SLV0_ADDR -- I2C_SLV4_RW=1 (read operation) ; I2C_SLV4_ADDR=MAG_ADDRESS
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x26, MAG_DATA_REGISTER);//I2C_SLV0_REG  -- 6 data bytes of MAG are stored in 6 registers. First register address is MAG_DATA_REGISTER
+    hal.i2c->writeReg(MPU6050_ADDRESS, 0x27, 0x86);             //I2C_SLV0_CTRL -- I2C_SLV0_EN=1 ; I2C_SLV0_BYTE_SW=0 ; I2C_SLV0_REG_DIS=0 ; I2C_SLV0_GRP=0 ; I2C_SLV0_LEN=3 (3x2 bytes)
   #endif
 }
 

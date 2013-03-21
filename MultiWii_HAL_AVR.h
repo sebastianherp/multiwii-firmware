@@ -58,17 +58,16 @@ class AVR_Driver_I2C : public Driver_I2C {
 		uint8_t readReg(uint8_t add, uint8_t reg);
 		size_t readRegToBuffer(uint8_t add, uint8_t reg, void *buf, size_t size);
 		size_t readToBuffer(uint8_t add, void *buf, size_t size);
-		void setFastClock();
-		void setSlowClock();
-                void setEnablePullUps(bool active);
-		
-	private:	
+		void setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
+		void setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
 		void stop();
 		void repStart(uint8_t address);
 		void write(uint8_t data);
 		uint8_t read(uint8_t ack);
 		uint8_t readAck();
 		uint8_t readNak();
+		
+	private:	
 		void waitTransmission();
 		
 		uint32_t neutralizeTime;

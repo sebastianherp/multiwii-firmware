@@ -67,17 +67,7 @@ void AVR_Driver_I2C::waitTransmission() {
     }
   }
 }
-void AVR_Driver_I2C::setFastClock() {
-	TWBR = ((F_CPU / 400000L) - 16) / 2;
-}
 
-void AVR_Driver_I2C::setSlowClock() {
-	TWBR = ((F_CPU / 100000L) - 16) / 2;
-}
-
-void setEnablePullUps(bool active) {
-  
-}
 	
 size_t AVR_Driver_I2C::readToBuffer(uint8_t add, void *buf, size_t size) {
   repStart((add<<1) | 1);  // I2C read direction
@@ -103,6 +93,7 @@ void AVR_Driver_I2C::writeReg(uint8_t add, uint8_t reg, uint8_t val) {
   write(val);        // value to write in register
   stop();
 }
+
 uint8_t AVR_Driver_I2C::readReg(uint8_t add, uint8_t reg) {
   uint8_t val;
   readRegToBuffer(add, reg, &val, 1);
