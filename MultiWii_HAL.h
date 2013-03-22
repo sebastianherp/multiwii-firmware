@@ -21,7 +21,6 @@ static struct {
   void (* repStart)(uint8_t address);
   void (* write)(uint8_t data);
   uint8_t (* read)(uint8_t ack);
-  void (* waitTransmission)();
 } HAL_I2C = {
   0,
 #if defined(PROMINI) || defined(PROMICRO) || defined(MEGA)
@@ -31,8 +30,7 @@ static struct {
   avr_i2c_stop,
   avr_i2c_repStart,
   avr_i2c_write,
-  avr_i2c_read,
-  avr_i2c_waitTransmission
+  avr_i2c_read
 #elif defined(STM32)
   stm32_i2c_init,
   stm32_i2c_setFastClock,
@@ -40,8 +38,7 @@ static struct {
   stm32_i2c_stop,
   stm32_i2c_repStart,
   stm32_i2c_write,
-  stm32_i2c_read,
-  stm32_i2c_waitTransmission
+  stm32_i2c_read
 #elif defined(X86)
   x86_i2c_init,
   x86_i2c_setFastClock,
@@ -49,8 +46,7 @@ static struct {
   x86_i2c_stop,
   x86_i2c_repStart,
   x86_i2c_write,
-  x86_i2c_read,
-  x86_i2c_waitTransmission
+  x86_i2c_read
 #endif  
 };
 
