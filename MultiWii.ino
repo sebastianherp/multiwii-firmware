@@ -14,8 +14,7 @@ March  2013     V2.2
 #include "def.h"
 
 
-#include "MultiWii_HAL_AVR.h"
-#define HAL MultiWii_HAL_AVR
+#include "MultiWii_HAL.h"
 
 #include <avr/pgmspace.h>
 #define  VERSION  221
