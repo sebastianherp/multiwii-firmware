@@ -148,20 +148,20 @@ static uint32_t neutralizeTime = 0;
 // ************************************************************************************************************
 
 uint8_t i2c_readAck() {
-  return HAL::i2c_read(1);
+  return HAL_I2C.read(1);
 }
 
 uint8_t i2c_readNak(void) {
-  return HAL::i2c_read(0);
+  return HAL_I2C.read(0);
 }
 
 size_t i2c_read_to_buf(uint8_t add, void *buf, size_t size) {
-  HAL::i2c_repStart((add<<1) | 1);  // I2C read direction
+  HAL_I2C.repStart((add<<1) | 1);  // I2C read direction
   size_t bytes_read = 0;
   uint8_t *b = (uint8_t*)buf;
   while (size--) {
     /* acknowledge all but the final byte */
-    *b++ = HAL::i2c_read(size > 0);
+    *b++ = HAL_I2C.read(size > 0);
     /* TODO catch I2C errors here and abort */
     bytes_read++;
   }
@@ -169,8 +169,8 @@ size_t i2c_read_to_buf(uint8_t add, void *buf, size_t size) {
 }
 
 size_t i2c_read_reg_to_buf(uint8_t add, uint8_t reg, void *buf, size_t size) {
-  HAL::i2c_repStart(add<<1); // I2C write direction
-  HAL::i2c_write(reg);        // register selection
+  HAL_I2C.repStart(add<<1); // I2C write direction
+  HAL_I2C.write(reg);        // register selection
   return i2c_read_to_buf(add, buf, size);
 }
 
@@ -196,10 +196,10 @@ void i2c_getSixRawADC(uint8_t add, uint8_t reg) {
 }
 
 void i2c_writeReg(uint8_t add, uint8_t reg, uint8_t val) {
-  HAL::i2c_repStart(add<<1); // I2C write direction
-  HAL::i2c_write(reg);        // register selection
-  HAL::i2c_write(val);        // value to write in register
-  HAL::i2c_stop();
+  HAL_I2C.repStart(add<<1); // I2C write direction
+  HAL_I2C.write(reg);        // register selection
+  HAL_I2C.write(val);        // value to write in register
+  HAL_I2C.stop();
 }
 
 uint8_t i2c_readReg(uint8_t add, uint8_t reg) {
@@ -559,10 +559,10 @@ void i2c_MS561101BA_reset(){
 void i2c_MS561101BA_readCalibration(){
   union {uint16_t val; uint8_t raw[2]; } data;
   for(uint8_t i=0;i<6;i++) {
-    HAL::i2c_repStart(MS561101BA_ADDRESS<<1);
-    HAL::i2c_write(0xA2+2*i);
+    HAL_I2C.repStart(MS561101BA_ADDRESS<<1);
+    HAL_I2C.write(0xA2+2*i);
     delay(10);
-    HAL::i2c_repStart((MS561101BA_ADDRESS<<1) | 1);//I2C read direction => 1
+    HAL_I2C.repStart((MS561101BA_ADDRESS<<1) | 1);//I2C read direction => 1
     delay(10);
     data.raw[1] = i2c_readAck();  // read a 16 bit register
     data.raw[0] = i2c_readNak();
@@ -582,23 +582,23 @@ void  Baro_init() {
 
 // read uncompensated temperature value: send command first
 void i2c_MS561101BA_UT_Start() {
-  HAL::i2c_repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
-  HAL::i2c_write(MS561101BA_TEMPERATURE + OSR);  // register selection
-  HAL::i2c_stop();
+  HAL_I2C.repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
+  HAL_I2C.write(MS561101BA_TEMPERATURE + OSR);  // register selection
+  HAL_I2C.stop();
 }
 
 // read uncompensated pressure value: send command first
 void i2c_MS561101BA_UP_Start () {
-  HAL::i2c_repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
-  HAL::i2c_write(MS561101BA_PRESSURE + OSR);     // register selection
-  HAL::i2c_stop();
+  HAL_I2C.repStart(MS561101BA_ADDRESS<<1);      // I2C write direction
+  HAL_I2C.write(MS561101BA_PRESSURE + OSR);     // register selection
+  HAL_I2C.stop();
 }
 
 // read uncompensated pressure value: read result bytes
 void i2c_MS561101BA_UP_Read () {
-  HAL::i2c_repStart(MS561101BA_ADDRESS<<1);
-  HAL::i2c_write(0);
-  HAL::i2c_repStart((MS561101BA_ADDRESS<<1) | 1);
+  HAL_I2C.repStart(MS561101BA_ADDRESS<<1);
+  HAL_I2C.write(0);
+  HAL_I2C.repStart((MS561101BA_ADDRESS<<1) | 1);
   ms561101ba_ctx.up.raw[2] = i2c_readAck();
   ms561101ba_ctx.up.raw[1] = i2c_readAck();
   ms561101ba_ctx.up.raw[0] = i2c_readNak();
@@ -606,9 +606,9 @@ void i2c_MS561101BA_UP_Read () {
 
 // read uncompensated temperature value: read result bytes
 void i2c_MS561101BA_UT_Read() {
-  HAL::i2c_repStart(MS561101BA_ADDRESS<<1);
-  HAL::i2c_write(0);
-  HAL::i2c_repStart((MS561101BA_ADDRESS<<1) | 1);
+  HAL_I2C.repStart(MS561101BA_ADDRESS<<1);
+  HAL_I2C.write(0);
+  HAL_I2C.repStart((MS561101BA_ADDRESS<<1) | 1);
   ms561101ba_ctx.ut.raw[2] = i2c_readAck();
   ms561101ba_ctx.ut.raw[1] = i2c_readAck();
   ms561101ba_ctx.ut.raw[0] = i2c_readNak();
@@ -644,7 +644,7 @@ void i2c_MS561101BA_Calculate() {
 uint8_t Baro_update() {                            // first UT conversion is started in init procedure
   if (currentTime < ms561101ba_ctx.deadline) return 0; 
   ms561101ba_ctx.deadline = currentTime+10000;  // UT and UP conversion take 8.5ms so we do next reading after 10ms 
-  HAL::i2c_setFastClock();
+  HAL_I2C.setFastClock();
   if (ms561101ba_ctx.state == 0) {
     i2c_MS561101BA_UT_Read(); 
     i2c_MS561101BA_UP_Start(); 
@@ -1011,7 +1011,7 @@ uint8_t Mag_getADC() { // return 1 when news values are available, 0 otherwise
   uint8_t axis;
   if ( currentTime < t ) return 0; //each read is spaced by 100ms
   t = currentTime + 100000;
-  HAL::i2c_setFastClock(); // change the I2C clock rate to 400kHz
+  HAL_I2C.setFastClock(); // change the I2C clock rate to 400kHz
   Device_Mag_getADC();
   imu.magADC[ROLL]  = imu.magADC[ROLL]  * magGain[ROLL];
   imu.magADC[PITCH] = imu.magADC[PITCH] * magGain[PITCH];
@@ -1274,7 +1274,7 @@ void Device_Mag_getADC() {
 #if defined(MPU6050)
 
 void Gyro_init() {
-  HAL::i2c_setFastClock(); // change the I2C clock rate to 400kHz
+  HAL_I2C.setFastClock(); // change the I2C clock rate to 400kHz
   i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x80);             //PWR_MGMT_1    -- DEVICE_RESET 1
   delay(5);
   i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x03);             //PWR_MGMT_1    -- SLEEP 0; CYCLE 0; TEMP_DIS 0; CLKSEL 3 (PLL with Z Gyro reference)
@@ -1673,7 +1673,7 @@ void initSensors() {
   #else
     I2C_PULLUPS_DISABLE
   #endif
-  HAL::i2c_init();  
+  HAL_I2C.init();  
   delay(100);
   if (GYRO) Gyro_init();
   if (BARO) Baro_init();

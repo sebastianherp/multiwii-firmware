@@ -88,7 +88,7 @@ void alarmHandler(){
     else alarmArray[6] = 4;
   #endif
   
-  if (HAL::i2c_errors_count > i2c_errors_count_old+100 || HAL::i2c_errors_count < -1) alarmArray[9] = 1;
+  if (HAL_I2C.errors_count > i2c_errors_count_old+100 || HAL_I2C.errors_count < -1) alarmArray[9] = 1;
   else alarmArray[9] = 0;
    
   alarmPatternComposer();
