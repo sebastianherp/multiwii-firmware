@@ -44,14 +44,14 @@
 #endif
 
 
-void i2c_setFastClock(void);
-void i2c_setSlowClock(void);
-void i2c_init(void);
-void i2c_stop(void);
-void i2c_repStart(uint8_t address);
-void i2c_write(uint8_t data);
-uint8_t i2c_read(uint8_t ack);
-void i2c_waitTransmission(void);
+void avr_i2c_setFastClock(void);
+void avr_i2c_setSlowClock(void);
+void avr_i2c_init(void);
+void avr_i2c_stop(void);
+void avr_i2c_repStart(uint8_t address);
+void avr_i2c_write(uint8_t data);
+uint8_t avr_i2c_read(uint8_t ack);
+void avr_i2c_waitTransmission(void);
 
 static struct {
   int16_t errors_count;
@@ -66,24 +66,42 @@ static struct {
 } HAL_I2C = {
   0,
 #if defined(PROMINI) || defined(PROMICRO) || defined(MEGA)
-  i2c_init,
-  i2c_setFastClock,
-  i2c_setSlowClock,
-  i2c_stop,
-  i2c_repStart,
-  i2c_write,
-  i2c_read,
-  i2c_waitTransmission
+  avr_i2c_init,
+  avr_i2c_setFastClock,
+  avr_i2c_setSlowClock,
+  avr_i2c_stop,
+  avr_i2c_repStart,
+  avr_i2c_write,
+  avr_i2c_read,
+  avr_i2c_waitTransmission
+#elif defined(STM32)
+  stm32_i2c_init,
+  stm32_i2c_setFastClock,
+  stm32_i2c_setSlowClock,
+  stm32_i2c_stop,
+  stm32_i2c_repStart,
+  stm32_i2c_write,
+  stm32_i2c_read,
+  stm32_i2c_waitTransmission
+#elif defined(X86)
+  x86_i2c_init,
+  x86_i2c_setFastClock,
+  x86_i2c_setSlowClock,
+  x86_i2c_stop,
+  x86_i2c_repStart,
+  x86_i2c_write,
+  x86_i2c_read,
+  x86_i2c_waitTransmission
 #endif  
 };
 
 
 
 #if defined(PROMINI) || defined(PROMICRO) || defined(MEGA)
-void i2c_setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
-void i2c_setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
+void avr_i2c_setFastClock() { TWBR = ((F_CPU / 400000L) - 16) / 2; }
+void avr_i2c_setSlowClock() { TWBR = ((F_CPU / 100000L) - 16) / 2; }
 
-void i2c_init() {
+void avr_i2c_init() {
   TWSR = 0;                                    // no prescaler => prescaler = 1
   i2c_setSlowClock();						   // just set to always slow (sensors who can handle fast, set it accordingly)
   //TWBR = ((F_CPU / I2C_SPEED) - 16) / 2;       // change the I2C clock rate
@@ -92,12 +110,12 @@ void i2c_init() {
 
 
 
-void i2c_stop() {
+void avr_i2c_stop() {
   TWCR = (1 << TWINT) | (1 << TWEN) | (1 << TWSTO);
   //  while(TWCR & (1<<TWSTO));                // <- can produce a blocking state with some WMP clones
 }
 
-void i2c_waitTransmission() {
+void avr_i2c_waitTransmission() {
   uint16_t count = 255;
   while (!(TWCR & (1<<TWINT))) {
     count--;
@@ -111,19 +129,19 @@ void i2c_waitTransmission() {
 }
 
 	
-void i2c_repStart(uint8_t address) {
+void avr_i2c_repStart(uint8_t address) {
   TWCR = (1<<TWINT) | (1<<TWSTA) | (1<<TWEN) ; // send REPEAT START condition
   i2c_waitTransmission();                       // wait until transmission completed
   TWDR = address;                              // send device address
   TWCR = (1<<TWINT) | (1<<TWEN);
   i2c_waitTransmission();                       // wail until transmission completed
 }
-void i2c_write(uint8_t data) {
+void avr_i2c_write(uint8_t data) {
   TWDR = data;                                 // send data to the previously addressed device
   TWCR = (1<<TWINT) | (1<<TWEN);
   i2c_waitTransmission();
 }
-uint8_t i2c_read(uint8_t ack) {
+uint8_t avr_i2c_read(uint8_t ack) {
   TWCR = (1<<TWINT) | (1<<TWEN) | (ack? (1<<TWEA) : 0);
   i2c_waitTransmission();
   uint8_t r = TWDR;
