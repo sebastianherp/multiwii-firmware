@@ -34,9 +34,7 @@ uint8_t SerialPeek(uint8_t port);
 #if defined(GPS_SERIAL)
   bool SerialTXfree(uint8_t port);
 #endif
-void serialize32(uint8_t port, uint32_t a);
-void serialize16(uint8_t port, int16_t a);
-void serialize8(uint8_t port, uint8_t a);
+void serializeChar(uint8_t port, uint8_t a);
 uint32_t read32(uint8_t port);
 uint16_t read16(uint8_t port);
 uint8_t read8(uint8_t port);

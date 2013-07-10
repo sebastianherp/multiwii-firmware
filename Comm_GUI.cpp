@@ -75,8 +75,27 @@ const uint32_t capability = 0+BIND_CAPABLE;
 #define MSP_DEBUG                254   //out message         debug1,debug2,debug3,debug4
 
 static uint8_t cmdMSP[UART_NUMBER];
+static uint8_t checksum[UART_NUMBER];
 
 void evaluateCommand(uint8_t port);
+void serialize8(uint8_t port, uint8_t a);
+
+void serialize32(uint8_t port, uint32_t a) {
+  serialize8(port, (a    ) & 0xFF);
+  serialize8(port, (a>> 8) & 0xFF);
+  serialize8(port, (a>>16) & 0xFF);
+  serialize8(port, (a>>24) & 0xFF);
+}
+
+void serialize16(uint8_t port, int16_t a) {
+  serialize8(port, (a   ) & 0xFF);
+  serialize8(port, (a>>8) & 0xFF);
+}
+
+void serialize8(uint8_t port, uint8_t a) {
+  checksum[port] ^= a;
+  serializeChar(port, a);
+}
 
 void headSerialResponse(uint8_t port, uint8_t err, uint8_t s) {
   serialize8(port, '$');
@@ -105,6 +124,29 @@ void serializeNames(uint8_t port, PGM_P s) {
   for (PGM_P c = s; pgm_read_byte(c); c++) {
     serialize8(port, pgm_read_byte(c));
   }
+}
+
+void  s_struct(uint8_t port, uint8_t *cb,uint8_t siz) {
+  headSerialReply(port, siz);
+  while(siz--) serialize8(port, *cb++);
+}
+
+void s_struct_w(uint8_t port, uint8_t *cb,uint8_t siz) {
+ headSerialReply(port, 0);
+  while(siz--) *cb++ = read8(port);
+}
+
+void send_dummy(uint8_t port) {
+     struct {
+       uint8_t v,t,msp_v;
+       uint32_t cap;
+     } id;
+     id.v     = VERSION;
+     id.t     = MULTITYPE;
+     id.msp_v = MSP_VERSION;
+     id.cap   = capability|DYNBAL<<2|FLAP<<3;
+     s_struct(port, (uint8_t*)&id,7);    
+  
 }
 
 uint8_t guiParser(uint8_t port, uint8_t c) {
@@ -155,15 +197,7 @@ uint8_t guiParser(uint8_t port, uint8_t c) {
   return 0;
 }
 
-void  s_struct(uint8_t port, uint8_t *cb,uint8_t siz) {
-  headSerialReply(port, siz);
-  while(siz--) serialize8(port, *cb++);
-}
 
-void s_struct_w(uint8_t port, uint8_t *cb,uint8_t siz) {
- headSerialReply(port, 0);
-  while(siz--) *cb++ = read8(port);
-}
 
 //#ifndef SUPPRESS_ALL_SERIAL_MSP
 void evaluateCommand(uint8_t port) {
@@ -516,3 +550,5 @@ void evaluateCommand(uint8_t port) {
   }
   tailSerialReply(port);
 }
+
+

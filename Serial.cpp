@@ -152,23 +152,12 @@ void evaluateOtherData(uint8_t sr) {
 // Interrupt driven UART transmitter - using a ring buffer
 // *******************************************************
 
-void serialize32(uint8_t port, uint32_t a) {
-  serialize8(port, (a    ) & 0xFF);
-  serialize8(port, (a>> 8) & 0xFF);
-  serialize8(port, (a>>16) & 0xFF);
-  serialize8(port, (a>>24) & 0xFF);
-}
 
-void serialize16(uint8_t port, int16_t a) {
-  serialize8(port, (a   ) & 0xFF);
-  serialize8(port, (a>>8) & 0xFF);
-}
 
-void serialize8(uint8_t port, uint8_t a) {
+void serializeChar(uint8_t port, uint8_t a) {
   uint8_t t = serialHeadTX[port];
   if (++t >= TX_BUFFER_SIZE) t = 0;
   serialBufferTX[t][port] = a;
-  checksum[port] ^= a;
   serialHeadTX[port] = t;
 }
 
@@ -371,7 +360,7 @@ uint8_t SerialAvailable(uint8_t port) {
 }
 
 void SerialWrite(uint8_t port,uint8_t c){
-  serialize8(port, c);
+  serializeChar(port, c);
   UartSendData(port);
 }
 
