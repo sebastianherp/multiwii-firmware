@@ -162,39 +162,49 @@ uint8_t guiParser(uint8_t port, uint8_t c) {
   } c_state[UART_NUMBER];// = IDLE;  
   
   // regular data handling to detect and handle MSP and other data
-  if (c_state[port] == IDLE) {
-    c_state[port] = (c=='$') ? HEADER_START : IDLE;
-    if (c_state[port] == IDLE) evaluateOtherData(c); // evaluate all other incoming serial data
-  } else if (c_state[port] == HEADER_START) {
-    c_state[port] = (c=='M') ? HEADER_M : IDLE;
-  } else if (c_state[port] == HEADER_M) {
-    c_state[port] = (c=='<') ? HEADER_ARROW : IDLE;
-  } else if (c_state[port] == HEADER_ARROW) {
-    if (c > INBUF_SIZE) {  // now we are expecting the payload size
-      c_state[port] = IDLE;
-    } else {
-      indRX[port] = 0;
-      dataSize[port] = c;
-      offset[port] = 0;
-      checksum[port] = 0;
+  switch(c_state[port]) {
+    case IDLE:
+      if(c=='$') c_state[port] = HEADER_START;
+      else evaluateOtherData(c); // evaluate all other incoming serial data
+      break;
+    case HEADER_START:
+      c_state[port] = (c=='M') ? HEADER_M : IDLE;
+      break;
+    case HEADER_M:
+      c_state[port] = (c=='<') ? HEADER_ARROW : IDLE;
+      break;
+    case HEADER_ARROW:
+      if (c > INBUF_SIZE) {  // now we are expecting the payload size
+        c_state[port] = IDLE;
+      } else {
+        indRX[port] = 0;
+        dataSize[port] = c;
+        offset[port] = 0;
+        checksum[port] = 0;
+        checksum[port] ^= c;
+        c_state[port] = HEADER_SIZE;  // the command is to follow
+      }
+      break;
+    case HEADER_SIZE:
+      cmdMSP[port] = c;
       checksum[port] ^= c;
-      c_state[port] = HEADER_SIZE;  // the command is to follow
-    }
-  } else if (c_state[port] == HEADER_SIZE) {
-    cmdMSP[port] = c;
-    checksum[port] ^= c;
-    c_state[port] = HEADER_CMD;
-  } else if (c_state[port] == HEADER_CMD && offset[port] < dataSize[port]) {
-    checksum[port] ^= c;
-    inBuf[offset[port]++][port] = c;
-  } else if (c_state[port] == HEADER_CMD && offset[port] >= dataSize[port]) {
-    if (checksum[port] == c) {  // compare calculated and transferred checksum
-      evaluateCommand(port);  // we got a valid packet, evaluate it
-    }
-    c_state[port] = IDLE;
-    return 1; // no more than one MSP per port and per cycle
+      c_state[port] = HEADER_CMD;
+      break;
+    case HEADER_CMD:
+      if(offset[port] < dataSize[port]) {
+        checksum[port] ^= c;
+        inBuf[offset[port]++][port] = c;
+      } else {
+        if (checksum[port] == c) {  // compare calculated and transferred checksum
+          evaluateCommand(port);  // we got a valid packet, evaluate it
+        }
+        c_state[port] = IDLE;
+        return 1; // no more than one MSP per port and per cycle
+      }
+      break;
   }
   return 0;
+
 }
 
 
