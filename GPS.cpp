@@ -1,4 +1,36 @@
+#include "Arduino.h"
+#include "config.h"
+#include "def.h"
+#include "types.h"
+#include "GPS.h"
+#include "Serial.h"
+#include "Sensors.h"
+#include "MultiWii.h"
+
 #if GPS
+
+bool GPS_newFrame(char c);
+#if defined(NMEA)
+  bool GPS_NMEA_newFrame(char c);
+#endif
+#if defined(UBLOX)
+  bool GPS_UBLOX_newFrame(uint8_t data);
+  bool UBLOX_parse_gps(void);
+#endif
+#if defined(MTK_BINARY16) || defined(MTK_BINARY19)
+  bool GPS_MTK_newFrame(uint8_t data);
+#endif
+void GPS_distance_cm_bearing(int32_t* lat1, int32_t* lon1, int32_t* lat2, int32_t* lon2,uint32_t* dist, int32_t* bearing);
+static void GPS_calc_velocity(void);
+static void GPS_calc_location_error( int32_t* target_lat, int32_t* target_lng, int32_t* gps_lat, int32_t* gps_lng );
+static void GPS_calc_poshold(void);
+static uint16_t GPS_calc_desired_speed(uint16_t max_speed, bool _slow);
+static void GPS_calc_nav_rate(uint16_t max_speed);
+int32_t wrap_18000(int32_t ang);
+static bool check_missed_wp(void);
+void GPS_calc_longitude_scaling(int32_t lat);
+static void GPS_update_crosstrack(void);
+int32_t wrap_36000(int32_t ang);
 
 #if defined(TINY_GPS)
   #include "tinygps.h"
@@ -236,7 +268,7 @@ static int16_t nav_takeoff_bearing;
    };
  #endif
 
-  void GPS_SerialInit() {
+  void GPS_SerialInit(void) {
     SerialOpen(GPS_SERIAL,GPS_BAUD);  
     delay(1000);
     #if defined(UBLOX)
@@ -305,7 +337,7 @@ static int16_t nav_takeoff_bearing;
   }
 #endif //gps_serial
 
-void GPS_NewData() {
+void GPS_NewData(void) {
   uint8_t axis;
   #if defined(I2C_GPS)
     static uint8_t GPS_pids_initialized;
@@ -390,6 +422,16 @@ void GPS_NewData() {
         varptr = (uint8_t *)&GPS_altitude;       // altitude in meters for OSD
         *varptr++ = i2c_readAck();
         *varptr   = i2c_readAck();
+		
+#if defined(I2C_GPS_SONAR)
+        i2c_rep_start(I2C_GPS_ADDRESS<<1);
+        i2c_write(I2C_GPS_SONAR_ALT);         
+        i2c_rep_start((I2C_GPS_ADDRESS<<1)|1);
+
+        varptr = (uint8_t *)&sonarAlt;          // altitude (in cm? maybe)
+        *varptr++ = i2c_readAck();
+        *varptr   = i2c_readNak();
+#endif		
 
         //GPS_ground_course
         varptr = (uint8_t *)&GPS_ground_course;
@@ -538,7 +580,7 @@ void GPS_NewData() {
   #endif
 }
 
-void GPS_reset_home_position() {
+void GPS_reset_home_position(void) {
   if (f.GPS_FIX && GPS_numSat >= 5) {
     #if defined(I2C_GPS)
       //set current position as home
@@ -555,7 +597,7 @@ void GPS_reset_home_position() {
 }
 
 //reset navigation (stop the navigation processor, and clear nav)
-void GPS_reset_nav() {
+void GPS_reset_nav(void) {
   uint8_t i;
   
   for(i=0;i<2;i++) {
@@ -573,7 +615,7 @@ void GPS_reset_nav() {
 }
 
 //Get the relevant P I D values and set the PID controllers 
-void GPS_set_pids() {
+void GPS_set_pids(void) {
   #if defined(GPS_SERIAL)  || defined(GPS_FROM_OSD) || defined(TINY_GPS)
     posholdPID_PARAM.kP   = (float)conf.pid[PIDPOS].P8/100.0;
     posholdPID_PARAM.kI   = (float)conf.pid[PIDPOS].I8/100.0;
@@ -594,7 +636,7 @@ void GPS_set_pids() {
     i2c_rep_start(I2C_GPS_ADDRESS<<1);
       i2c_write(I2C_GPS_HOLD_P);
        i2c_write(conf.pid[PIDPOS].P8);
-       i2c_write(conf.pid[PIDPOS].P8);
+       i2c_write(conf.pid[PIDPOS].I8);
     
     i2c_rep_start(I2C_GPS_ADDRESS<<1);
       i2c_write(I2C_GPS_HOLD_RATE_P);
@@ -698,7 +740,7 @@ void GPS_set_next_wp(int32_t* lat, int32_t* lon) {
 ////////////////////////////////////////////////////////////////////////////////////
 // Check if we missed the destination somehow
 //
-static bool check_missed_wp() {
+static bool check_missed_wp(void) {
   int32_t temp;
   temp = target_bearing - original_target_bearing;
   temp = wrap_18000(temp);
@@ -741,7 +783,7 @@ void GPS_distance(int32_t lat1, int32_t lon1, int32_t lat2, int32_t lon2, uint16
 // Note: even though the positions are projected using a lead filter, the velocities are calculated
 //       from the unaltered gps locations.  We do not want noise from our lead filter affecting velocity
 //*******************************************************************************************************
-static void GPS_calc_velocity(){
+static void GPS_calc_velocity(void){
   static int16_t speed_old[2] = {0,0};
   static int32_t last[2] = {0,0};
   static uint8_t init = 0;
@@ -789,7 +831,7 @@ static void GPS_calc_location_error( int32_t* target_lat, int32_t* target_lng, i
 ////////////////////////////////////////////////////////////////////////////////////
 // Calculate nav_lat and nav_lon from the x and y error and the speed
 //
-static void GPS_calc_poshold() {
+static void GPS_calc_poshold(void) {
   int32_t d;
   int32_t target_speed;
   uint8_t axis;

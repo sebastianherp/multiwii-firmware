@@ -1,3 +1,6 @@
+#ifndef DEF_H_
+#define DEF_H_
+
 /**************************************************************************************/
 /***************             test configurations                   ********************/
 /**************************************************************************************/
@@ -34,8 +37,7 @@
   #define LED_RING
   #define GPS_SERIAL 2
   #define LOG_VALUES 2
-  #define CYCLETIME_FIXATED 9000
-  #define LOG_PERMANENT 1023
+  #define LOG_PERMANENT
   #define LOG_PERMANENT_SERVICE_LIFETIME 36000
 #elif COPTERTEST == 5
   #define HELI_120_CCPM
@@ -54,10 +56,54 @@
   #define MMGYROVECTORLENGTH 15
   #define GYRO_SMOOTHING {45, 45, 50}
   #define INFLIGHT_ACC_CALIBRATION
-  #define LOG_PERMANENT 1023
+  #define LOG_PERMANENT
   #define LOG_PERMANENT_SHOW_AT_STARTUP
   #define LOG_PERMANENT_SHOW_AT_L
   #define LOG_PERMANENT_SERVICE_LIFETIME 36000
+  #define GOVERNOR_P 0
+  #define GOVERNOR_D 10
+  #define VOLTAGEDROP_COMPENSATION
+#elif COPTERTEST == 6
+  #define HEX6H
+  #define DIYFLYING_MAGE_V1
+  #define BUZZER
+  #define RCOPTIONSBEEP // ca. 80byte
+  #define ARMEDTIMEWARNING 480 // 8 min = 480seconds
+  #define VBAT
+  #define VOLTAGEDROP_COMPENSATION
+  #define MEGA_HW_PWM_SERVOS
+  #define SERVO_RFR_RATE  300    // In Hz, you can set it from 20 to 400Hz, used only in HW PWM mode
+  #define LOG_VALUES 1
+  #define DEBUG
+  #define MULTIPLE_CONFIGURATION_PROFILES
+  #define DISPLAY_FONT_DSIZE
+  #define OLED_DIGOLE
+  #define LCD_CONF
+#elif COPTERTEST == 7
+  #define HELI_120_CCPM
+  #define NANOWII
+  #define FORCE_ACC_ORIENTATION(X, Y, Z)  {imu.accADC[ROLL]  = X; imu.accADC[PITCH]  =  Y; imu.accADC[YAW]  =  Z;}
+  #define FORCE_GYRO_ORIENTATION(X, Y, Z) {imu.gyroADC[ROLL] = -Y; imu.gyroADC[PITCH] = X; imu.gyroADC[YAW] = -Z;}
+  #define A32U4_4_HW_PWM_SERVOS
+  #define SERVO_RFR_RATE  200    // 200 for graupner is ok
+  #define SERVO_PIN5_RFR_RATE  165    // In Hz, you can set it from 20 to 400Hz, used only in HW PWM mode for mega and 32u4
+  #define SPEKTRUM 1024
+  #define BUZZER
+  #define RCOPTIONSBEEP // ca. 80byte
+  #define VBAT
+  #define LOG_VALUES 1
+  #define DISPLAY_FONT_DSIZE
+  #define OLED_DIGOLE
+  #define LCD_CONF
+  #define LCD_TELEMETRY
+  #define LCD_TELEMETRY_AUTO "1"
+  #define LCD_TELEMETRY_STEP "F14$5R"
+  #define LOG_PERMANENT
+  #define LOG_PERMANENT_SHOW_AFTER_CONFIG
+  #define SUPPRESS_OTHER_SERIAL_COMMANDS
+  #define SUPPRESS_DEFAULTS_FROM_GUI
+  #define NO_FLASH_CHECK
+  #define DEBUG_FREE
 #elif defined(COPTERTEST)
   #error "*** this test is not yet defined"
 #endif
@@ -81,7 +127,9 @@
 /**************************************************************************************/
 /***************             motor and servo numbers               ********************/
 /**************************************************************************************/
-#if defined (AIRPLANE) || defined(FLYING_WING)|| defined(SINGLECOPTER)|| defined(DUALCOPTER)
+#define SERVO_RATES      {30,30,100,100,100,100,100,100}
+
+#if defined (AIRPLANE) || defined(FLYING_WING)
   #define FIXEDWING
 #endif
 
@@ -89,8 +137,29 @@
   #define HELICOPTER
 #endif
 
-#if defined(BI) || defined(TRI) || defined(SERVO_TILT) || defined(GIMBAL) || defined(FLYING_WING) || defined(AIRPLANE) || defined(CAMTRIG) || defined(HELICOPTER) || defined(SERVO_MIX_TILT)|| defined(SINGLECOPTER)|| defined(DUALCOPTER)
+#if defined(BI) || defined(TRI) || defined(FIXEDWING) || defined(HELICOPTER) || defined(SINGLECOPTER)|| defined(DUALCOPTER)
+  #define COPTER_WITH_SERVO
+#endif
+
+#if defined(COPTER_WITH_SERVO) || defined(SERVO_TILT) || defined(GIMBAL) || defined(CAMTRIG) || defined(SERVO_MIX_TILT)
   #define SERVO
+#endif
+
+#if defined(DYNBALANCE)
+  #define DYNBAL 1
+#else
+  #define DYNBAL 0
+#endif
+#if defined(FLAPS)
+  #define FLAP 1
+#else
+  #define FLAP 0
+#endif
+
+#if defined(MEGA) && defined(MEGA_HW_PWM_SERVOS)
+  #define TRI_SERVO  4
+#else
+  #define TRI_SERVO  6
 #endif
 
 #if defined(GIMBAL)
@@ -98,40 +167,44 @@
   #define PRI_SERVO_FROM   1 // use servo from 1 to 2
   #define PRI_SERVO_TO     2
 #elif defined(FLYING_WING)
-  #define NUMBER_MOTOR     1
-  #define PRI_SERVO_FROM   1 // use servo from 1 to 2
-  #define PRI_SERVO_TO     2
-  
+  #define PRI_SERVO_FROM   4
+  #if defined (USE_THROTTLESERVO)
+    #define NUMBER_MOTOR   0
+    #define PRI_SERVO_TO   8 // use servo from 4,5 and 8
+  #else
+    #define NUMBER_MOTOR   1
+    #define PRI_SERVO_TO   5 // use servo from 4 to 5
+  #endif
 #elif defined(SINGLECOPTER)
   #define NUMBER_MOTOR     1
   #define PRI_SERVO_FROM   4 // use servo from 4 to 7
   #define PRI_SERVO_TO     7
 #elif defined(DUALCOPTER)
   #define NUMBER_MOTOR     2
-  #define PRI_SERVO_FROM   4 // use servo from 5 to 6
+  #define PRI_SERVO_FROM   5 // use servo from 5 to 6
   #define PRI_SERVO_TO     6
-  
 #elif defined(AIRPLANE)
-    #if defined (USE_THROTTLESERVO)
-      #define NUMBER_MOTOR     0
-    #else
-      #define NUMBER_MOTOR     1
-    #endif
-    #if defined(FLAPS) 
-      #define PRI_SERVO_FROM   3 // use servo from 3 to 8    
-      #undef CAMTRIG             // Disable Camtrig on A2
-    #else
-      #define PRI_SERVO_FROM   4 // use servo from 4 to 8
-    #endif  
-  #define PRI_SERVO_TO     8
+  #if defined (USE_THROTTLESERVO)
+    #define NUMBER_MOTOR   0
+    #define PRI_SERVO_TO   8
+  #else
+    #define NUMBER_MOTOR   1
+    #define PRI_SERVO_TO   7
+  #endif
+  #if defined(FLAPS) 
+    #define PRI_SERVO_FROM   3 // use servo from 3 to 8    
+    #undef CAMTRIG             // Disable Camtrig on A2
+  #else
+    #define PRI_SERVO_FROM   4 // use servo from 4 to 8
+  #endif  
 #elif defined(BI)
   #define NUMBER_MOTOR     2
   #define PRI_SERVO_FROM   5 // use servo from 5 to 6
   #define PRI_SERVO_TO     6
 #elif defined(TRI)
   #define NUMBER_MOTOR     3
-  #define PRI_SERVO_FROM   6 // use only servo 6
-  #define PRI_SERVO_TO     6
+  #define PRI_SERVO_FROM   TRI_SERVO // use only servo 6 (or 4 with Mega HW PWM)
+  #define PRI_SERVO_TO     TRI_SERVO
 #elif defined(QUADP) || defined(QUADX) || defined(Y4)|| defined(VTAIL4)
   #define NUMBER_MOTOR     4
 #elif defined(Y6) || defined(HEX6) || defined(HEX6X) || defined(HEX6H)
@@ -139,17 +212,15 @@
 #elif defined(OCTOX8) || defined(OCTOFLATP) || defined(OCTOFLATX)
   #define NUMBER_MOTOR     8
 #elif defined(HELICOPTER)
+  #define PRI_SERVO_FROM   4
   #ifdef HELI_USE_SERVO_FOR_THROTTLE
-    #define NUMBER_MOTOR     0 // use servo to drive throttle output
-    #define PRI_SERVO_FROM   4 // use servo from 4 to 8
-    #define PRI_SERVO_TO     8
+    #define NUMBER_MOTOR   0 // use servo to drive throttle output
+    #define PRI_SERVO_TO   8 // use servo from 4 to 8
   #else
-    #define NUMBER_MOTOR     1 // use 1 motor for throttle
-    #define PRI_SERVO_FROM   4 // use servo from 4 to 7
-    #define PRI_SERVO_TO     7
+    #define NUMBER_MOTOR   1 // use motor1 for throttle, DO  NOT SET TO 2, OR IT WILL BURN/DESTROY SERVO7 USED FOR SWASH
+    #define PRI_SERVO_TO   7 // use servo from 4 to 7
   #endif
 #endif
-
 
 #if (defined(SERVO_TILT)|| defined(SERVO_MIX_TILT))&& defined(CAMTRIG)
   #define SEC_SERVO_FROM   1 // use servo from 1 to 3
@@ -161,10 +232,8 @@
       #define SEC_SERVO_FROM   3 // use servo from 3 to 4
       #define SEC_SERVO_TO     4
     #else
-      #if !defined(MEGA_HW_PWM_SERVOS) // if HW Gimbal is active we dont need the SW PWM defines
-        #define SEC_SERVO_FROM   1 // use servo from 1 to 2
-        #define SEC_SERVO_TO     2
-      #endif
+      #define SEC_SERVO_FROM   1 // use servo from 1 to 2
+      #define SEC_SERVO_TO     2
     #endif
   #endif
   #if defined(CAMTRIG)
@@ -354,7 +423,7 @@
   #define STABLEPIN_PINMODE          ;
   #define STABLEPIN_ON               ;
   #define STABLEPIN_OFF              ;
-  #define PPM_PIN_INTERRUPT          DDRE &= ~(1 << 6);PORTE |= (1 << 6);EIMSK |= (1 << INT6);EICRB |= (1 << ISC61)|(1 << ISC60);
+  #define PPM_PIN_INTERRUPT          DDRE &= ~(1 << 6);PORTE |= (1 << 6); EICRB |= (1 << ISC61)|(1 << ISC60); EIMSK |= (1 << INT6);
   #if !defined(SPEK_SERIAL_PORT)
     #define SPEK_SERIAL_PORT         1
   #endif
@@ -491,7 +560,7 @@
   #define STABLEPIN_OFF              PORTC &= ~(1<<6);
   #if defined(PPM_ON_THROTTLE)
     //configure THROTTLE PIN (A8 pin) as input witch pullup and enabled PCINT interrupt
-    #define PPM_PIN_INTERRUPT        DDRK &= ~(1<<0); PORTK |= (1<<0); PCMSK2 |= (1<<0); PCICR |= (1<<2);
+    #define PPM_PIN_INTERRUPT        DDRK &= ~(1<<0); PORTK |= (1<<0);  PCICR |= (1<<2); PCMSK2 |= (1<<0);
   #else
     #define PPM_PIN_INTERRUPT        attachInterrupt(4, rxInt, RISING);  //PIN 19, also used for Spektrum satellite option
   #endif
@@ -763,8 +832,9 @@
   #endif
 #endif
 
-#if defined(MEGA) && defined(MEGA_HW_PWM_SERVOS)
-  #undef SERVO_1_HIGH                                    // No software PWM's if we use hardware MEGA PWM
+#if ( defined(MEGA) && defined(MEGA_HW_PWM_SERVOS) ) || (defined(PROMICRO) && defined(A32U4_4_HW_PWM_SERVOS))
+  #undef SERVO_1_HIGH                                    // No software PWM's if we use hardware MEGA PWM or promicro hardware pwm
+  #define HW_PWM_SERVOS
 #endif
 
 
@@ -1291,8 +1361,6 @@
   #define SERVO_3_PINMODE            pinMode(46,OUTPUT);        // CAM TRIG
   #define SERVO_3_PIN_HIGH           PORTL |= 1<<3;
   #define SERVO_3_PIN_LOW            PORTL &= ~(1<<3);
-  #define SERVO_4_PINMODE            pinMode(11,OUTPUT);        // SERVO4 , use hardware PWM
-  #define SERVO_5_PINMODE            pinMode(12,OUTPUT);        // SERVO5 , use hardware PWM
 #endif
 
 #if defined(LADYBIRD)
@@ -1377,6 +1445,37 @@
   #define INIT_MTK_GPS
 #endif
 
+#if defined(MultiWii_32U4_SE)
+  #define MPU6050
+  #define HMC5883
+  #define MPU6050_I2C_AUX_MASTER // MAG connected to the AUX I2C bus of MPU6050
+  #define MS561101BA
+  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+  #define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = -Z;}
+  #undef INTERNAL_I2C_PULLUPS
+#endif
+
+#if defined(MultiWii_32U4_SE_no_baro)
+  #define MPU6050
+  #define HMC5883
+  #define MPU6050_I2C_AUX_MASTER // MAG connected to the AUX I2C bus of MPU6050
+  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+  #define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = -Z;}
+  #undef INTERNAL_I2C_PULLUPS
+#endif
+
+#if defined(Flyduino9DOF)
+  #define MPU6050
+  #define HMC5883
+  #define ACC_ORIENTATION(X, Y, Z)  {accADC[ROLL]  = -X; accADC[PITCH]  = -Y; accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {gyroADC[ROLL] =  Y; gyroADC[PITCH] = -X; gyroADC[YAW] = -Z;}
+  #define MAG_ORIENTATION(X, Y, Z)  {magADC[ROLL]  =  X; magADC[PITCH]  =  Y; magADC[YAW]  = -Z;}
+  #define MPU6050_EN_I2C_BYPASS // MAG connected to the AUX I2C bus of MPU6050
+  #undef INTERNAL_I2C_PULLUPS
+#endif
+
 #if defined(OPENLRSv2MULTI)
   #define ITG3200
   #define ADXL345
@@ -1452,6 +1551,16 @@
   #undef INTERNAL_I2C_PULLUPS
 #endif
 
+#if defined(DIYFLYING_MAGE_V1)
+  #define MPU6050 // gyro+acc
+  #define BMP085  // baro
+  #define HMC5883 // mag
+  #define ACC_ORIENTATION(X, Y, Z)  {imu.accADC[ROLL]  = -X; imu.accADC[PITCH]  = -Y; imu.accADC[YAW]  =  Z;}
+  #define GYRO_ORIENTATION(X, Y, Z) {imu.gyroADC[ROLL] =  Y; imu.gyroADC[PITCH] = -X; imu.gyroADC[YAW] = -Z;}
+  #define MAG_ORIENTATION(X, Y, Z)  {imu.magADC[ROLL]  =  X; imu.magADC[PITCH]  =  Y; imu.magADC[YAW]  = -Z;}
+  #undef INTERNAL_I2C_PULLUPS
+#endif
+
 /**************************************************************************************/
 /***************              Sensor Type definitions              ********************/
 /**************************************************************************************/
@@ -1483,7 +1592,6 @@
 #if defined(GPS_PROMINI_SERIAL) && defined(PROMINI)
   #define GPS_SERIAL 0
   #define GPS_PROMINI
-  #define GPS_BAUD   GPS_PROMINI_SERIAL
 #endif
 
 #if defined(GPS_SERIAL)  || defined(I2C_GPS) || defined(GPS_FROM_OSD) || defined(TINY_GPS)
@@ -1492,12 +1600,71 @@
   #define GPS 0
 #endif
 
-#if defined(SRF02) || defined(SRF08) || defined(SRF10) || defined(SRC235) || defined(TINY_GPS_SONAR)
+#if defined(SRF02) || defined(SRF08) || defined(SRF10) || defined(SRC235) || defined(TINY_GPS_SONAR) || defined(I2C_GPS_SONAR)
   #define SONAR 1
 #else
   #define SONAR 0
 #endif
 
+
+#if defined(MMA7455)
+  #define ACC_1G 64
+#endif
+#if defined(MMA8451Q)
+  #define ACC_1G 512
+#endif
+#if defined(ADXL345)
+  #define ACC_1G 265
+#endif
+#if defined(BMA180)
+  #define ACC_1G 255
+#endif
+#if defined(BMA020)
+  #define ACC_1G 63
+#endif
+#if defined(NUNCHACK)
+  #define ACC_1G 200
+#endif
+#if defined(LIS3LV02)
+  #define ACC_1G 256
+#endif
+#if defined(LSM303DLx_ACC)
+  #define ACC_1G 256
+#endif
+#if defined(ADCACC)
+  #define ACC_1G 75
+#endif
+#if defined(MPU6050)
+  #if defined(FREEIMUv04)
+    #define ACC_1G 255
+  #else
+    #define ACC_1G 512
+  #endif
+#endif
+#if defined(NUNCHUCK)
+  #define ACC_1G 200
+#endif
+#if !defined(ACC_1G)
+  #define ACC_1G 256
+#endif
+#define ACC_25deg    (uint16_t)(ACC_1G * 0.423)
+#define ACC_VelScale (9.80665f / 10000.0f / ACC_1G)
+
+#if defined(ITG3200)
+  #define GYRO_SCALE (4 / 14.375 * PI / 180.0 / 1000000.0) //ITG3200   14.375 LSB/(deg/s) and we ignore the last 2 bits
+#endif
+#if defined(L3G4200D)
+  #define GYRO_SCALE ((4.0f * PI * 70.0f)/(1000.0f * 180.0f * 1000000.0f))
+#endif
+#if defined(MPU6050)
+  #define GYRO_SCALE (4 / 16.4 * PI / 180.0 / 1000000.0)   //MPU6050 and MPU3050   16.4 LSB/(deg/s) and we ignore the last 2 bits
+#endif
+#if defined(MPU3050)
+  #define GYRO_SCALE (4 / 16.4 * PI / 180.0 / 1000000.0)   //MPU6050 and MPU3050   16.4 LSB/(deg/s) and we ignore the last 2 bits
+#endif
+#if defined(WMP)
+  #define GYRO_SCALE (1.0f/200e6f)
+#endif
 
 /**************************************************************************************/
 /***************      Multitype decleration for the GUI's          ********************/
@@ -1510,6 +1677,7 @@
   #define MULTITYPE 3
 #elif defined(BI)
   #define MULTITYPE 4
+  #define SERVO_RATES      {30,30,100,100,0,1,100,100}
 #elif defined(GIMBAL)
   #define MULTITYPE 5
 #elif defined(Y6)
@@ -1518,6 +1686,7 @@
   #define MULTITYPE 7
 #elif defined(FLYING_WING)
   #define MULTITYPE 8
+  #define SERVO_RATES      {30,30,100,0,1,100,100,100}
 #elif defined(Y4)
   #define MULTITYPE 9
 #elif defined(HEX6X)
@@ -1528,16 +1697,23 @@
   #define MULTITYPE 12   //12  for MultiWinGui
 #elif defined(OCTOFLATX)
   #define MULTITYPE 13   //13  for MultiWinGui 
-#elif defined(AIRPLANE)|| defined(SINGLECOPTER)|| defined(DUALCOPTER)    
+#elif defined(AIRPLANE)
   #define MULTITYPE 14    
+  #define SERVO_RATES      {30,30,100,100,-100,100,100,100}
 #elif defined (HELI_120_CCPM)   
   #define MULTITYPE 15      
 #elif defined (HELI_90_DEG)   
   #define MULTITYPE 16      
+  #define SERVO_RATES      {30,30,100,-100,-100,100,100,100}
 #elif defined(VTAIL4)
- #define MULTITYPE 17
+  #define MULTITYPE 17
 #elif defined(HEX6H)
- #define MULTITYPE 18
+  #define MULTITYPE 18
+#elif defined(SINGLECOPTER)
+  #define MULTITYPE 20
+  #define SERVO_RATES      {30,30,100,0,1,0,1,100}
+#elif defined(DUALCOPTER)
+  #define MULTITYPE 20
 #endif
 
 /**************************************************************************************/
@@ -1558,6 +1734,9 @@
 
 #if defined(POWERMETER_HARD) || defined(POWERMETER_SOFT)
   #define POWERMETER
+  #define PLEVELSCALE 50 // step size you can use to set alarm
+  #define PLEVELDIVSOFT 100000
+  #define PLEVELDIV 36000
 #endif
 
 #if defined PILOTLAMP 
@@ -1577,16 +1756,15 @@
   #define    PL_IDLE      125    // 100us
 #endif
 
-#if defined(PILOTLAMP) || defined(VBAT)
+#if defined(PILOTLAMP)
   #define BUZZER
 #endif
 
 //all new Special RX's must be added here
 //this is to avoid confusion :)
-#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS) && !defined(RCSERIAL)
+#if !defined(SERIAL_SUM_PPM) && !defined(SPEKTRUM) && !defined(SBUS)
   #define STANDARD_RX
 #endif
-
 
 // Spektrum Satellite
 #if defined(SPEKTRUM)
@@ -1727,6 +1905,8 @@
 #define I2C_GPS_WP13                                206
 #define I2C_GPS_WP14                                217
 #define I2C_GPS_WP15                                228
+
+#define I2C_GPS_SONAR_ALT                           239   // Sonar Altitude
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 // End register definition 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1734,7 +1914,7 @@
 #endif
 
 #if !(defined(DISPLAY_2LINES)) && !(defined(DISPLAY_MULTILINE))
-  #if (defined(LCD_VT100)) || (defined(OLED_I2C_128x64))
+  #if (defined(LCD_VT100)) || (defined(OLED_I2C_128x64) || defined(OLED_DIGOLE) )
     #define DISPLAY_MULTILINE
   #else
     #define DISPLAY_2LINES
@@ -1747,6 +1927,9 @@
   #endif
   #if !(defined(MULTILINE_POST))
     #define MULTILINE_POST 9
+  #endif
+  #if !(defined(DISPLAY_COLUMNS))
+    #define DISPLAY_COLUMNS 40
   #endif
 #elif (defined(OLED_I2C_128x64) && defined(DISPLAY_FONT_DSIZE))
   #if !(defined(MULTILINE_PRE))
@@ -1762,6 +1945,30 @@
   #if !(defined(MULTILINE_POST))
     #define MULTILINE_POST 5
   #endif
+  #if !(defined(DISPLAY_COLUMNS))
+    #define DISPLAY_COLUMNS 21
+  #endif
+#elif (defined(OLED_DIGOLE) && defined(DISPLAY_FONT_DSIZE))
+  #if !(defined(MULTILINE_PRE))
+    #define MULTILINE_PRE 2
+  #endif
+  #if !(defined(MULTILINE_POST))
+    #define MULTILINE_POST 3
+  #endif
+#elif (defined(OLED_DIGOLE))
+  #if !(defined(MULTILINE_PRE))
+    #define MULTILINE_PRE 3
+  #endif
+  #if !(defined(MULTILINE_POST))
+    #define MULTILINE_POST 4
+  #endif
+  #if !(defined(DISPLAY_COLUMNS))
+    #define DISPLAY_COLUMNS 21
+  #endif
+#endif
+
+#if !(defined(DISPLAY_COLUMNS))
+  #define DISPLAY_COLUMNS 16
 #endif
 
 #if !defined(ALT_HOLD_THROTTLE_NEUTRAL_ZONE)
@@ -1769,36 +1976,56 @@
 #endif 
 
 /**************************************************************************************/
-/***************               override default pin assignments ?  ********************/
+/***************               override defaults                   ********************/
 /**************************************************************************************/
-#ifdef OVERRIDE_V_BATPIN
-  #define V_BATPIN OVERRIDE_V_BATPIN
-#endif
-#ifdef OVERRIDE_LEDPIN_PINMODE
-  #define LEDPIN_PINMODE OVERRIDE_LEDPIN_PINMODE
-  #define LEDPIN_TOGGLE  OVERRIDE_LEDPIN_TOGGLE
-  #define LEDPIN_OFF     OVERRIDE_LEDPIN_OFF
-  #define LEDPIN_ON      OVERRIDE_LEDPIN_ON
-#endif
-#ifdef OVERRIDE_BUZZERPIN_PINMODE
-  #define BUZZERPIN_PINMODE OVERRIDE_BUZZERPIN_PINMODE
-  #define BUZZERPIN_ON      OVERRIDE_BUZZERPIN_ON
-  #define BUZZERPIN_OFF     OVERRIDE_BUZZERPIN_OFF
-#endif
 
-/**************************************************************************************/
-/********* enforce your sensors orientation - possibly overriding board defaults  *****/
-/**************************************************************************************/
-#ifdef FORCE_GYRO_ORIENTATION
-  #define GYRO_ORIENTATION FORCE_GYRO_ORIENTATION
-#endif
-#ifdef FORCE_ACC_ORIENTATION
-  #define ACC_ORIENTATION FORCE_ACC_ORIENTATION
-#endif
-#ifdef FORCE_MAG_ORIENTATION
-  #define MAG_ORIENTATION FORCE_MAG_ORIENTATION
-#endif
+  /***************               pin assignments ?  ********************/
+  #ifdef OVERRIDE_V_BATPIN
+    #undef V_BATPIN
+    #define V_BATPIN OVERRIDE_V_BATPIN
+  #endif
+  #ifdef OVERRIDE_PSENSORPIN
+    #undef PSENSORPIN
+    #define PSENSORPIN OVERRIDE_PSENSORPIN
+  #endif
+  #ifdef OVERRIDE_LEDPIN_PINMODE
+    #undef LEDPIN_PINMODE
+    #undef LEDPIN_TOGGLE
+    #undef LEDPIN_OFF
+    #undef LEDPIN_ON
+    #define LEDPIN_PINMODE OVERRIDE_LEDPIN_PINMODE
+    #define LEDPIN_TOGGLE  OVERRIDE_LEDPIN_TOGGLE
+    #define LEDPIN_OFF     OVERRIDE_LEDPIN_OFF
+    #define LEDPIN_ON      OVERRIDE_LEDPIN_ON
+  #endif
+  #ifdef OVERRIDE_BUZZERPIN_PINMODE
+    #undef BUZZERPIN_PINMODE
+    #undef BUZZERPIN_ON
+    #undef BUZZERPIN_OFF
+    #define BUZZERPIN_PINMODE OVERRIDE_BUZZERPIN_PINMODE
+    #define BUZZERPIN_ON      OVERRIDE_BUZZERPIN_ON
+    #define BUZZERPIN_OFF     OVERRIDE_BUZZERPIN_OFF
+  #endif
 
+  /*********  sensors orientation - possibly overriding board defaults  *****/
+  #ifdef FORCE_GYRO_ORIENTATION
+    #undef GYRO_ORIENTATION
+    #define GYRO_ORIENTATION FORCE_GYRO_ORIENTATION
+  #endif
+  #ifdef FORCE_ACC_ORIENTATION
+    #undef ACC_ORIENTATION
+    #define ACC_ORIENTATION FORCE_ACC_ORIENTATION
+  #endif
+  #ifdef FORCE_MAG_ORIENTATION
+    #undef MAG_ORIENTATION
+    #define MAG_ORIENTATION FORCE_MAG_ORIENTATION
+  #endif
+
+  /*********  servo rates                                               *****/
+  #ifdef FORCE_SERVO_RATES
+    #undef SERVO_RATES
+    #define SERVO_RATES FORCE_SERVO_RATES
+  #endif
 /**************************************************************************************/
 /***************               Error Checking Section              ********************/
 /**************************************************************************************/
@@ -1807,15 +2034,15 @@
         #error "NUMBER_MOTOR is not set, most likely you have not defined any type of multicopter"
 #endif
 
-#if (defined(LCD_DUMMY) || defined(LCD_SERIAL3W) || defined(LCD_TEXTSTAR) || defined(LCD_VT100) || defined(LCD_TTY) || defined(LCD_ETPP) || defined(LCD_LCD03) || defined(OLED_I2C_128x64) )
+#if (defined(LCD_DUMMY) || defined(LCD_SERIAL3W) || defined(LCD_TEXTSTAR) || defined(LCD_VT100) || defined(LCD_TTY) || defined(LCD_ETPP) || defined(LCD_LCD03) || defined(OLED_I2C_128x64) ) || defined(OLED_DIGOLE)
   #define HAS_LCD
 #endif
 
 #if (defined(LCD_CONF) || defined(LCD_TELEMETRY)) && !(defined(HAS_LCD) )
-  #error "LCD_CONF or LCD_TELEMETRY defined, and choice of LCD not defined.  Uncomment one of LCD_SERIAL3W, LCD_TEXTSTAR, LCD_VT100, LCD_TTY or LCD_ETPP, LCD_LCD03, OLED_I2C_128x64"
+  #error "LCD_CONF or LCD_TELEMETRY defined, and choice of LCD not defined.  Uncomment one of LCD_SERIAL3W, LCD_TEXTSTAR, LCD_VT100, LCD_TTY or LCD_ETPP, LCD_LCD03, OLED_I2C_128x64, OLED_DIGOLE"
 #endif
 
-#if defined(POWERMETER) && !(defined(VBAT))
+#if defined(POWERMETER_SOFT) && !(defined(VBAT))
         #error "to use powermeter, you must also define and configure VBAT"
 #endif
 
@@ -1826,3 +2053,9 @@
 #if defined(LCD_TELEMETRY_STEP) && !(defined(LCD_TELEMETRY))
         #error "to use single step telemetry, you MUST also define and configure LCD_TELEMETRY"
 #endif
+
+#if defined(A32U4_4_HW_PWM_SERVOS) && !(defined(HELI_120_CCPM))
+  #error "for your protection: A32U4_4_HW_PWM_SERVOS was not tested with your coptertype"
+#endif
+
+#endif /* DEF_H_ */

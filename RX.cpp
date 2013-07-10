@@ -1,3 +1,10 @@
+#include "Arduino.h"
+#include "config.h"
+#include "def.h"
+#include "types.h"
+#include "Serial.h"
+#include "MultiWii.h"
+
 /**************************************************************************************/
 /***************             Global RX related variables           ********************/
 /**************************************************************************************/
@@ -29,6 +36,8 @@
 #endif
 
 #define FAILSAFE_DETECT_TRESHOLD  985
+
+void rxInt(void);
 
 /**************************************************************************************/
 /***************                   RX Pin Setup                    ********************/
@@ -64,8 +73,8 @@ void configureReceiver() {
       //Trottle on pin 7
       DDRE &= ~(1 << 6); // pin 7 to input
       PORTE |= (1 << 6); // enable pullups
-      EIMSK |= (1 << INT6); // enable interuppt
       EICRB |= (1 << ISC60);
+      EIMSK |= (1 << INT6); // enable interuppt
       // Aux2 pin on PBO (D17/RXLED)
       #if defined(RCAUX2PIND17)
         DDRB &= ~(1 << 0); // set D17 to input 
@@ -74,8 +83,8 @@ void configureReceiver() {
       #if defined(RCAUX2PINRXO)
         DDRD &= ~(1 << 2); // RX to input
         PORTD |= (1 << 2); // enable pullups
-        EIMSK |= (1 << INT2); // enable interuppt
         EICRA |= (1 << ISC20);
+        EIMSK |= (1 << INT2); // enable interuppt
       #endif
     #endif
     
@@ -256,7 +265,7 @@ void configureReceiver() {
 
 // Read PPM SUM RX Data
 #if defined(SERIAL_SUM_PPM)
-  void rxInt() {
+  void rxInt(void) {
     uint16_t now,diff;
     static uint16_t last = 0;
     static uint8_t chan = 0;
@@ -335,7 +344,7 @@ void  readSBus(){
 /***************          combine and sort the RX Datas            ********************/
 /**************************************************************************************/
 #if defined(SPEKTRUM)
-void readSpektrum() {
+void readSpektrum(void) {
   if ((!f.ARMED) && 
      #if defined(FAILSAFE) || (SPEK_SERIAL_PORT != 0) 
         (failsafeCnt > 5) &&
@@ -395,7 +404,7 @@ void computeRC() {
   static uint16_t rcData4Values[RC_CHANS][4], rcDataMean[RC_CHANS];
   static uint8_t rc4ValuesIndex = 0;
   uint8_t chan,a;
-  #if !(defined(RCSERIAL) || defined(OPENLRSv2MULTI)) // dont know if this is right here
+  #if !defined(OPENLRSv2MULTI) // dont know if this is right here
     #if defined(SBUS)
       readSBus();
     #endif
@@ -404,8 +413,8 @@ void computeRC() {
     for (chan = 0; chan < RC_CHANS; chan++) {
       #if defined(FAILSAFE)
         uint16_t rcval = readRawRC(chan);
-        if(rcval>FAILSAFE_DETECT_TRESHOLD || chan > 3) {        // update controls channel only if pulse is above FAILSAFE_DETECT_TRESHOLD
-          rcData4Values[chan][rc4ValuesIndex] = rcval;
+        if(rcval>FAILSAFE_DETECT_TRESHOLD || chan > 3 || !f.ARMED) {        // update controls channel only if pulse is above FAILSAFE_DETECT_TRESHOLD
+          rcData4Values[chan][rc4ValuesIndex] = rcval;                      // In disarmed state allow always update for easer configuration.
         }
       #else
         rcData4Values[chan][rc4ValuesIndex] = readRawRC(chan);
@@ -415,6 +424,13 @@ void computeRC() {
       rcDataMean[chan]= (rcDataMean[chan]+2)>>2;
       if ( rcDataMean[chan] < (uint16_t)rcData[chan] -3)  rcData[chan] = rcDataMean[chan]+2;
       if ( rcDataMean[chan] > (uint16_t)rcData[chan] +3)  rcData[chan] = rcDataMean[chan]-2;
+      if (chan<8 && rcSerialCount > 0) { // rcData comes from MSP and overrides RX Data until rcSerialCount reaches 0
+        rcSerialCount --;
+        #if defined(FAILSAFE)
+          failsafeCnt = 0;
+        #endif
+        if (rcSerial[chan] >900) {rcData[chan] = rcSerial[chan];} // only relevant channels are overridden
+      }
     }
   #endif
 }

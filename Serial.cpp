@@ -1,3 +1,27 @@
+#include "Arduino.h"
+#include "config.h"
+#include "def.h"
+#include "types.h"
+#include "EEPROM.h"
+#include "LCD.h"
+#include "Output.h"
+#include "GPS.h"
+#include "MultiWii.h"
+
+uint16_t read16();
+uint8_t read8();
+void serialize8(uint8_t a);
+void UartSendData();
+uint8_t SerialAvailable(uint8_t port);
+uint8_t SerialRead(uint8_t port);
+void evaluateOtherData(uint8_t sr);
+#ifndef SUPPRESS_ALL_SERIAL_MSP
+void evaluateCommand();
+#endif
+void serialize32(uint32_t a);
+void serialize16(int16_t a);
+void serialize8(uint8_t a);
+
 #if defined(MEGA)
   #define UART_NUMBER 4
 #elif defined(PROMICRO)
@@ -58,6 +82,7 @@ const uint32_t capability = 0+BIND_CAPABLE;
 #define MSP_PIDNAMES             117   //out message         the PID names
 #define MSP_WP                   118   //out message         get a WP, WP# is in the payload, returns (WP#, lat, lon, alt, flags) WP#0-home, WP#16-poshold
 #define MSP_BOXIDS               119   //out message         get the permanent IDs associated to BOXes
+#define MSP_SERVO_CONF           120   //out message         Servo settings
 
 #define MSP_SET_RAW_RC           200   //in message          8 rc chan
 #define MSP_SET_RAW_GPS          201   //in message          fix, numsat, lat, lon, alt, speed
@@ -71,6 +96,8 @@ const uint32_t capability = 0+BIND_CAPABLE;
 #define MSP_SET_WP               209   //in message          sets a given WP (WP#,lat, lon, alt, flags)
 #define MSP_SELECT_SETTING       210   //in message          Select Setting Number (0-2)
 #define MSP_SET_HEAD             211   //in message          define a new heading hold direction
+#define MSP_SET_SERVO_CONF       212   //in message          Servo settings
+#define MSP_SET_MOTOR            214   //in message          PropBalance function
 
 #define MSP_BIND                 240   //in message          no param
 
@@ -158,9 +185,14 @@ void serialCom() {
     #endif
     #define SPEK_COND
     #if defined(SPEKTRUM) && (UART_NUMBER > 1)
-      #define SPEK_COND  && (SPEK_SERIAL_PORT != CURRENTPORT)
+      #define SPEK_COND && (SPEK_SERIAL_PORT != CURRENTPORT)
     #endif
-    while (SerialAvailable(CURRENTPORT) GPS_COND SPEK_COND) {
+    #define SBUS_COND
+    #if defined(SBUS) && (UART_NUMBER > 1)
+      #define SBUS_COND && (SBUS_SERIAL_PORT != CURRENTPORT)
+    #endif
+    uint8_t cc = SerialAvailable(CURRENTPORT);
+    while (cc-- GPS_COND SPEK_COND SBUS_COND) {
       uint8_t bytesTXBuff = ((uint8_t)(serialHeadTX[CURRENTPORT]-serialTailTX[CURRENTPORT]))%TX_BUFFER_SIZE; // indicates the number of occupied bytes in TX buffer
       if (bytesTXBuff > TX_BUFFER_SIZE - 50 ) return; // ensure there is enough free TX buffer to go further (50 bytes margin)
       c = SerialRead(CURRENTPORT);
@@ -199,6 +231,7 @@ void serialCom() {
             evaluateCommand();  // we got a valid packet, evaluate it
           }
           c_state[CURRENTPORT] = IDLE;
+          cc = 0; // no more than one MSP per port and per cycle
         }
       #endif // SUPPRESS_ALL_SERIAL_MSP
     }
@@ -217,9 +250,12 @@ void s_struct_w(uint8_t *cb,uint8_t siz) {
 
 #ifndef SUPPRESS_ALL_SERIAL_MSP
 void evaluateCommand() {
+  uint32_t tmp=0; 
+
   switch(cmdMSP[CURRENTPORT]) {
    case MSP_SET_RAW_RC:
-     s_struct_w((uint8_t*)&rcData,16);
+     s_struct_w((uint8_t*)&rcSerial,16);
+     rcSerialCount = 50; // 1s transition 
      break;
    #if GPS
    case MSP_SET_RAW_GPS:
@@ -242,12 +278,75 @@ void evaluateCommand() {
    case MSP_SET_RC_TUNING:
      s_struct_w((uint8_t*)&conf.rcRate8,7);
      break;
+   #if !defined(DISABLE_SETTINGS_TAB)
    case MSP_SET_MISC:
+     struct {
+       uint16_t a,b,c,d,e,f;
+       uint32_t g;
+       uint16_t h;
+       uint8_t  i,j,k,l;
+     } set_misc;
+     s_struct_w((uint8_t*)&set_misc,22);
      #if defined(POWERMETER)
-       conf.powerTrigger1 = read16() / PLEVELSCALE;
+       conf.powerTrigger1 = set_misc.a / PLEVELSCALE;
      #endif
-     headSerialReply(0);
+     conf.minthrottle = set_misc.b;
+     #ifdef FAILSAFE 
+       conf.failsafe_throttle = set_misc.e;
+     #endif  
+     #if MAG
+       conf.mag_declination = set_misc.h;
+     #endif
+     #if defined(VBAT)
+       conf.vbatscale        = set_misc.i;
+       conf.vbatlevel_warn1  = set_misc.j;
+       conf.vbatlevel_warn2  = set_misc.k;
+       conf.vbatlevel_crit   = set_misc.l;
+     #endif
      break;
+   case MSP_MISC:
+     struct {
+       uint16_t a,b,c,d,e,f;
+       uint32_t g;
+       uint16_t h;
+       uint8_t  i,j,k,l;
+     } misc;
+     misc.a = intPowerTrigger1;
+     misc.b = conf.minthrottle;
+     misc.c = MAXTHROTTLE;
+     misc.d = MINCOMMAND;
+     #ifdef FAILSAFE 
+       misc.e = conf.failsafe_throttle;
+     #else  
+       misc.e = 0;
+     #endif
+     #ifdef LOG_PERMANENT
+       misc.f = plog.arm;
+       misc.g = plog.lifetime + (plog.armed_time / 1000000); // <- computation must be moved outside from serial
+     #else
+       misc.f = 0; misc.g =0;
+     #endif
+     #if MAG
+       misc.h = conf.mag_declination;
+     #else
+       misc.h = 0;
+     #endif
+     #ifdef VBAT
+       misc.i = conf.vbatscale;
+       misc.j = conf.vbatlevel_warn1;
+       misc.k = conf.vbatlevel_warn2;
+       misc.l = conf.vbatlevel_crit;
+     #else
+       misc.i = 0;misc.j = 0;misc.k = 0;misc.l = 0;
+     #endif
+     s_struct((uint8_t*)&misc,22);
+     break;
+   #endif
+   #if defined (DYNBALANCE)
+     case MSP_SET_MOTOR:
+       s_struct_w((uint8_t*)&motor,16);
+     break;
+   #endif
    #ifdef MULTIPLE_CONFIGURATION_PROFILES
    case MSP_SELECT_SETTING:
      if(!f.ARMED) {
@@ -270,7 +369,7 @@ void evaluateCommand() {
      id.v     = VERSION;
      id.t     = MULTITYPE;
      id.msp_v = MSP_VERSION;
-     id.cap   = capability;
+     id.cap   = capability|DYNBAL<<2|FLAP<<3;
      s_struct((uint8_t*)&id,7);
      break;
    case MSP_STATUS:
@@ -282,59 +381,74 @@ void evaluateCommand() {
      st.cycleTime        = cycleTime;
      st.i2c_errors_count = i2c_errors_count;
      st.sensor           = ACC|BARO<<1|MAG<<2|GPS<<3|SONAR<<4;
-     st.flag = 
-                         #if ACC
-                           f.ANGLE_MODE<<BOXANGLE|
-                           f.HORIZON_MODE<<BOXHORIZON|
-                         #endif
-                         #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
-                           f.BARO_MODE<<BOXBARO|
-                         #endif
-                         #if MAG
-                           f.MAG_MODE<<BOXMAG|f.HEADFREE_MODE<<BOXHEADFREE|rcOptions[BOXHEADADJ]<<BOXHEADADJ|
-                         #endif
-                         #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
-                           rcOptions[BOXCAMSTAB]<<BOXCAMSTAB|
-                         #endif
-                         #if defined(CAMTRIG)
-                           rcOptions[BOXCAMTRIG]<<BOXCAMTRIG|
-                         #endif
-                         #if GPS
-                           f.GPS_HOME_MODE<<BOXGPSHOME|f.GPS_HOLD_MODE<<BOXGPSHOLD|
-                         #endif
-                         #if defined(FIXEDWING) || defined(HELICOPTER)
-                           f.PASSTHRU_MODE<<BOXPASSTHRU|
-                         #endif
-                         #if defined(BUZZER)
-                           rcOptions[BOXBEEPERON]<<BOXBEEPERON|
-                         #endif
-                         #if defined(LED_FLASHER)
-                           rcOptions[BOXLEDMAX]<<BOXLEDMAX|
-                         #endif
-                         #if defined(LANDING_LIGHTS_DDR)
-                           rcOptions[BOXLLIGHTS]<<BOXLLIGHTS |
-                         #endif
-                         #if defined(VARIOMETER)
-                           rcOptions[BOXVARIO]<<BOXVARIO |
-                         #endif
-                         #if defined(INFLIGHT_ACC_CALIBRATION)
-                           rcOptions[BOXCALIB]<<BOXCALIB |
-                         #endif
-                         #if defined(GOVERNOR_P)
-                           rcOptions[BOXGOV]<<BOXGOV |
-                         #endif
-                         #if defined(OSD_SWITCH)
-                           rcOptions[BOXOSD]<<BOXOSD |
-                         #endif
-                         f.ARMED<<BOXARM;
+     #if ACC
+       if(f.ANGLE_MODE)   tmp |= 1<<BOXANGLE;
+       if(f.HORIZON_MODE) tmp |= 1<<BOXHORIZON;
+     #endif
+     #if BARO && (!defined(SUPPRESS_BARO_ALTHOLD))
+       if(f.BARO_MODE) tmp |= 1<<BOXBARO;
+     #endif
+     #if MAG
+       if(f.MAG_MODE) tmp |= 1<<BOXMAG;
+       #if !defined(FIXEDWING)
+         if(f.HEADFREE_MODE)       tmp |= 1<<BOXHEADFREE;
+         if(rcOptions[BOXHEADADJ]) tmp |= 1<<BOXHEADADJ;
+       #endif
+     #endif
+     #if defined(SERVO_TILT) || defined(GIMBAL)|| defined(SERVO_MIX_TILT)
+       if(rcOptions[BOXCAMSTAB]) tmp |= 1<<BOXCAMSTAB;
+     #endif
+     #if defined(CAMTRIG)
+       if(rcOptions[BOXCAMTRIG]) tmp |= 1<<BOXCAMTRIG;
+     #endif
+     #if GPS
+       if(f.GPS_HOME_MODE) tmp |= 1<<BOXGPSHOME; 
+       if(f.GPS_HOLD_MODE) tmp |= 1<<BOXGPSHOLD;
+     #endif
+     #if defined(FIXEDWING) || defined(HELICOPTER)
+       if(f.PASSTHRU_MODE) tmp |= 1<<BOXPASSTHRU;
+     #endif
+     #if defined(BUZZER)
+       if(rcOptions[BOXBEEPERON]) tmp |= 1<<BOXBEEPERON;
+     #endif
+     #if defined(LED_FLASHER)
+       if(rcOptions[BOXLEDMAX]) tmp |= 1<<BOXLEDMAX;
+       if(rcOptions[BOXLEDLOW]) tmp |= 1<<BOXLEDLOW;
+     #endif
+     #if defined(LANDING_LIGHTS_DDR)
+       if(rcOptions[BOXLLIGHTS]) tmp |= 1<<BOXLLIGHTS;
+     #endif
+     #if defined(VARIOMETER)
+       if(rcOptions[BOXVARIO]) tmp |= 1<<BOXVARIO;
+     #endif
+     #if defined(INFLIGHT_ACC_CALIBRATION)
+       if(rcOptions[BOXCALIB]) tmp |= 1<<BOXCALIB;
+     #endif
+     #if defined(GOVERNOR_P)
+       if(rcOptions[BOXGOV]) tmp |= 1<<BOXGOV;
+     #endif
+     #if defined(OSD_SWITCH)
+       if(rcOptions[BOXOSD]) tmp |= 1<<BOXOSD;
+     #endif
+     if(f.ARMED) tmp |= 1<<BOXARM;
+     st.flag             = tmp;
      st.set              = global_conf.currentSet;
      s_struct((uint8_t*)&st,11);
      break;
    case MSP_RAW_IMU:
+     #if defined(DYNBALANCE)
+       for(uint8_t axis=0;axis<3;axis++) {imu.gyroData[axis]=imu.gyroADC[axis];imu.accSmooth[axis]= imu.accADC[axis];} // Send the unfiltered Gyro & Acc values to gui.
+     #endif 
      s_struct((uint8_t*)&imu,18);
      break;
    case MSP_SERVO:
      s_struct((uint8_t*)&servo,16);
+     break;
+   case MSP_SERVO_CONF:
+     s_struct((uint8_t*)&conf.servoConf[0].min,56); // struct servo_conf_ is 7 bytes length: min:2 / max:2 / middle:2 / rate:1    ----     8 servo =>  8x7 = 56
+     break;
+   case MSP_SET_SERVO_CONF:
+     s_struct_w((uint8_t*)&conf.servoConf[0].min,56);
      break;
    case MSP_MOTOR:
      s_struct((uint8_t*)&motor,16);
@@ -389,9 +503,6 @@ void evaluateCommand() {
      for(uint8_t i=0;i<CHECKBOXITEMS;i++) {
        serialize8(pgm_read_byte(&(boxids[i])));
      }
-     break;
-   case MSP_MISC:
-     s_struct((uint8_t*)&intPowerTrigger1,2);
      break;
    case MSP_MOTOR_PINS:
      s_struct((uint8_t*)&PWM_PIN,8);
@@ -538,10 +649,10 @@ void evaluateOtherData(uint8_t sr) {
         case '7':
         case '8':
         case '9':
-      #if defined(LOG_VALUES) || defined(DEBUG)
+      #ifndef SUPPRESS_TELEMETRY_PAGE_R
         case 'R':
       #endif
-      #ifdef DEBUG
+      #if defined(DEBUG) || defined(DEBUG_FREE)
         case 'F':
       #endif
           toggle_telemetry(sr);
@@ -670,7 +781,7 @@ void UartSendData() {
   }
 #endif
 
-static void inline SerialOpen(uint8_t port, uint32_t baud) {
+void SerialOpen(uint8_t port, uint32_t baud) {
   uint8_t h = ((F_CPU  / 4 / baud -1) / 2) >> 8;
   uint8_t l = ((F_CPU  / 4 / baud -1) / 2);
   switch (port) {
@@ -692,7 +803,7 @@ static void inline SerialOpen(uint8_t port, uint32_t baud) {
   }
 }
 
-static void inline SerialEnd(uint8_t port) {
+void SerialEnd(uint8_t port) {
   switch (port) {
     #if defined(PROMINI)
       case 0: UCSR0B &= ~((1<<RXEN0)|(1<<TXEN0)|(1<<RXCIE0)|(1<<UDRIE0)); break;
@@ -709,7 +820,7 @@ static void inline SerialEnd(uint8_t port) {
   }
 }
 
-static void inline store_uart_in_buf(uint8_t data, uint8_t portnum) {
+void store_uart_in_buf(uint8_t data, uint8_t portnum) {
   #if defined(SPEKTRUM)
     if (portnum == SPEK_SERIAL_PORT) {
       if (!spekFrameFlags) { 
@@ -782,7 +893,7 @@ uint8_t SerialAvailable(uint8_t port) {
       if(port == 0) return T_USB_Available();
     #endif
   #endif
-  return (serialHeadRX[port] - serialTailRX[port])%RX_BUFFER_SIZE;
+  return ((uint8_t)(serialHeadRX[port] - serialTailRX[port]))%RX_BUFFER_SIZE;
 }
 
 void SerialWrite(uint8_t port,uint8_t c){
