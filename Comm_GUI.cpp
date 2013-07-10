@@ -78,6 +78,8 @@ static uint8_t cmdMSP[UART_NUMBER];
 static uint8_t checksum[UART_NUMBER];
 
 void evaluateCommand(uint8_t port);
+static uint8_t debugmsg_available();
+static void debugmsg_serialize(uint8_t port, uint8_t l);
 void serialize8(uint8_t port, uint8_t a);
 
 void serialize32(uint8_t port, uint32_t a) {
@@ -561,4 +563,37 @@ void evaluateCommand(uint8_t port) {
   tailSerialReply(port);
 }
 
+#ifdef DEBUGMSG
+void debugmsg_append_str(const char *str) {
+  while(*str) {
+    debug_buf[head_debug++] = *str++;
+    if (head_debug == DEBUG_MSG_BUFFER_SIZE) {
+      head_debug = 0;
+    }
+  }
+}
+
+static uint8_t debugmsg_available() {
+  if (head_debug >= tail_debug) {
+    return head_debug-tail_debug;
+  } else {
+    return head_debug + (DEBUG_MSG_BUFFER_SIZE-tail_debug);
+  }
+}
+
+static void debugmsg_serialize(uint8_t port, uint8_t l) {
+  for (uint8_t i=0; i<l; i++) {
+    if (head_debug != tail_debug) {
+      serialize8(port, debug_buf[tail_debug++]);
+      if (tail_debug == DEBUG_MSG_BUFFER_SIZE) {
+        tail_debug = 0;
+      }
+    } else {
+      serialize8(port, '\0');
+    }
+  }
+}
+#else
+void debugmsg_append_str(const char *str) {};
+#endif
 

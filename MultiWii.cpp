@@ -22,7 +22,7 @@ March  2013     V2.2
 #include "Output.h"
 #include "RX.h"
 #include "Sensors.h"
-#include "Serial.h"
+#include "Comm_GUI.h"
 #include "GPS.h"
 
 #include <avr/pgmspace.h>

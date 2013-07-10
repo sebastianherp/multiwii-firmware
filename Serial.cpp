@@ -10,7 +10,6 @@
 #include "Serial.h"
 #include "Comm_GUI.h"
 
-
 uint8_t SerialAvailable(uint8_t port);
 uint8_t SerialRead(uint8_t port);
 
@@ -67,7 +66,6 @@ void serialCom() {
         evaluateOtherData(c);
       #else
         uint8_t res = guiParser(port, c);
-        
         if(res == 1)
           cc = 0; // no more than one MSP per port and per cycle
       #endif // SUPPRESS_ALL_SERIAL_MSP
@@ -364,36 +362,4 @@ void SerialWrite(uint8_t port,uint8_t c){
   UartSendData(port);
 }
 
-#ifdef DEBUGMSG
-void debugmsg_append_str(const char *str) {
-  while(*str) {
-    debug_buf[head_debug++] = *str++;
-    if (head_debug == DEBUG_MSG_BUFFER_SIZE) {
-      head_debug = 0;
-    }
-  }
-}
 
-static uint8_t debugmsg_available() {
-  if (head_debug >= tail_debug) {
-    return head_debug-tail_debug;
-  } else {
-    return head_debug + (DEBUG_MSG_BUFFER_SIZE-tail_debug);
-  }
-}
-
-static void debugmsg_serialize(uint8_t l) {
-  for (uint8_t i=0; i<l; i++) {
-    if (head_debug != tail_debug) {
-      serialize8(debug_buf[tail_debug++]);
-      if (tail_debug == DEBUG_MSG_BUFFER_SIZE) {
-        tail_debug = 0;
-      }
-    } else {
-      serialize8('\0');
-    }
-  }
-}
-#else
-void debugmsg_append_str(const char *str) {};
-#endif
