@@ -15,7 +15,7 @@
 #if defined(GPS_SERIAL)
   #define RX_BUFFER_SIZE 256 // 256 RX buffer is needed for GPS communication (64 or 128 was too short)
 #else
-  #define RX_BUFFER_SIZE 64
+  #define RX_BUFFER_SIZE 256
 #endif
 #define TX_BUFFER_SIZE 128
 #define INBUF_SIZE 64
