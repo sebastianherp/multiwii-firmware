@@ -267,6 +267,7 @@ void swap_endianness(void *buf, size_t size) {
   }
 }
 
+
 void i2c_getSixRawADC(uint8_t add, uint8_t reg) {
   i2c_read_reg_to_buf(add, reg, &rawADC, 6);
 }
@@ -1342,23 +1343,30 @@ void Gyro_init() {
   delay(5);
   i2c_writeReg(MPU6050_ADDRESS, 0x6B, 0x03);             //PWR_MGMT_1    -- SLEEP 0; CYCLE 0; TEMP_DIS 0; CLKSEL 3 (PLL with Z Gyro reference)
   i2c_writeReg(MPU6050_ADDRESS, 0x1A, MPU6050_DLPF_CFG); //CONFIG        -- EXT_SYNC_SET 0 (disable input pin for data sync) ; default DLPF_CFG = 0 => ACC bandwidth = 260Hz  GYRO bandwidth = 256Hz)
-  i2c_writeReg(MPU6050_ADDRESS, 0x1B, 0x18);             //GYRO_CONFIG   -- FS_SEL = 3: Full scale set to 2000 deg/sec
+  i2c_writeReg(MPU6050_ADDRESS, 0x1B, 0x08);             //GYRO_CONFIG   -- FS_SEL = 1: Full scale set to 500 deg/sec
   // enable I2C bypass for AUX I2C
   #if defined(MAG)
     i2c_writeReg(MPU6050_ADDRESS, 0x37, 0x02);           //INT_PIN_CFG   -- INT_LEVEL=0 ; INT_OPEN=0 ; LATCH_INT_EN=0 ; INT_RD_CLEAR=0 ; FSYNC_INT_LEVEL=0 ; FSYNC_INT_EN=0 ; I2C_BYPASS_EN=1 ; CLKOUT_EN=0
   #endif
 }
 
-void Gyro_getADC () {
-  i2c_getSixRawADC(MPU6050_ADDRESS, 0x43);
-  GYRO_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])>>2 , // range: +/- 8192; +/- 2000 deg/sec
-                    ((rawADC[2]<<8) | rawADC[3])>>2 ,
-                    ((rawADC[4]<<8) | rawADC[5])>>2 );
+void Gyro_getADC() {
+	uint8_t mpuADC[14];
+
+	i2c_read_reg_to_buf(MPU6050_ADDRESS, 0x3B, &mpuADC, 14);
+	ACC_ORIENTATION( ((mpuADC[0]<<8) | mpuADC[1]) ,
+	                 ((mpuADC[2]<<8) | mpuADC[3]) ,
+	                 ((mpuADC[4]<<8) | mpuADC[5]) );
+	ACC_Common();
+  GYRO_ORIENTATION( ((mpuADC[0+8]<<8) | mpuADC[1+8]) , // range: +/- 8192; +/- 2000 deg/sec
+                    ((mpuADC[2+8]<<8) | mpuADC[3+8]) ,
+                    ((mpuADC[4+8]<<8) | mpuADC[5+8]) );
   GYRO_Common();
 }
 
 void ACC_init () {
-  i2c_writeReg(MPU6050_ADDRESS, 0x1C, 0x10);             //ACCEL_CONFIG  -- AFS_SEL=2 (Full Scale = +/-8G)  ; ACCELL_HPF=0   //note something is wrong in the spec.
+  //i2c_writeReg(MPU6050_ADDRESS, 0x1C, 0x10);             //ACCEL_CONFIG  -- AFS_SEL=2 (Full Scale = +/-8G)  ; ACCELL_HPF=0   //note something is wrong in the spec.
+  i2c_writeReg(MPU6050_ADDRESS, 0x1C, 0x00);             //ACCEL_CONFIG  -- AFS_SEL=0 (Full Scale = +/-2G)  ; ACCELL_HPF=0   //note something is wrong in the spec.
   //note: something seems to be wrong in the spec here. With AFS=2 1G = 4096 but according to my measurement: 1G=2048 (and 2048/8 = 256)
   //confirmed here: http://www.multiwii.com/forum/viewtopic.php?f=8&t=1080&start=10#p7480
 
@@ -1375,12 +1383,8 @@ void ACC_init () {
 }
 
 void ACC_getADC () {
-  i2c_getSixRawADC(MPU6050_ADDRESS, 0x3B);
-  ACC_ORIENTATION( ((rawADC[0]<<8) | rawADC[1])>>3 ,
-                   ((rawADC[2]<<8) | rawADC[3])>>3 ,
-                   ((rawADC[4]<<8) | rawADC[5])>>3 );
-  ACC_Common();
 }
+
 
 //The MAG acquisition function must be replaced because we now talk to the MPU device
   #if defined(MPU6050_I2C_AUX_MASTER)

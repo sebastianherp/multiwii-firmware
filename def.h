@@ -1638,7 +1638,7 @@
   #if defined(FREEIMUv04)
     #define ACC_1G 255
   #else
-    #define ACC_1G 512
+    #define ACC_1G (512*32)
   #endif
 #endif
 #if defined(NUNCHUCK)
@@ -1657,7 +1657,7 @@
   #define GYRO_SCALE ((4.0f * PI * 70.0f)/(1000.0f * 180.0f * 1000000.0f))
 #endif
 #if defined(MPU6050)
-  #define GYRO_SCALE (4 / 16.4 * PI / 180.0 / 1000000.0)   //MPU6050 and MPU3050   16.4 LSB/(deg/s) and we ignore the last 2 bits
+  #define GYRO_SCALE (1 / 65.5 * PI / 180.0 / 1000000.0)   //MPU6050 and MPU3050   16.4 LSB/(deg/s) and we ignore the last 2 bits
 #endif
 #if defined(MPU3050)
   #define GYRO_SCALE (4 / 16.4 * PI / 180.0 / 1000000.0)   //MPU6050 and MPU3050   16.4 LSB/(deg/s) and we ignore the last 2 bits

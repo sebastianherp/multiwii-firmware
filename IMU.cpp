@@ -35,6 +35,13 @@ void computeIMU () {
       imu.gyroData[axis] = (imu.gyroADC[axis]*3+gyroADCprevious[axis])>>2;
       gyroADCprevious[axis] = imu.gyroADC[axis];
     }
+	#elif defined(MPU6050)
+    Gyro_getADC();
+    getEstimatedAttitude();
+    annexCode();
+    for (axis = 0; axis < 3; axis++) {
+    	imu.gyroData[axis] = imu.gyroADC[axis] / 16;
+    }
   #else
     #if ACC
       ACC_getADC();
@@ -137,7 +144,7 @@ typedef union {
 
 int16_t _atan2(int32_t y, int32_t x){
   float z = (float)y / x;
-  int16_t a;
+  int32_t a;
   if ( abs(y) < abs(x) ){
      a = 573 * z / (1.0f + 0.28f * z * z);
    if (x<0) {
@@ -199,7 +206,7 @@ void getEstimatedAttitude(){
     accLPF32[axis]    += imu.accADC[axis];
     imu.accSmooth[axis]    = accLPF32[axis]>>ACC_LPF_FACTOR;
 
-    accMag += (int32_t)imu.accSmooth[axis]*imu.accSmooth[axis] ;
+    accMag += (int32_t)imu.accSmooth[axis] * imu.accSmooth[axis] / ACC_1G;
   }
 
   rotateV(&EstG.V,deltaGyroAngle);
@@ -213,7 +220,7 @@ void getEstimatedAttitude(){
     f.SMALL_ANGLES_25 = 0;
   }
 
-  accMag = accMag*100/((int32_t)ACC_1G*ACC_1G);
+  accMag = accMag * 100 / (int32_t)ACC_1G;
   validAcc = 72 < (uint16_t)accMag && (uint16_t)accMag < 133;
   // Apply complimentary filter (Gyro drift correction)
   // If accel magnitude >1.15G or <0.85G and ACC vector outside of the limit range => we neutralize the effect of accelerometers in the angle estimation.
@@ -221,7 +228,7 @@ void getEstimatedAttitude(){
   for (axis = 0; axis < 3; axis++) {
     if ( validAcc )
       EstG.A[axis] = (EstG.A[axis] * GYR_CMPF_FACTOR + imu.accSmooth[axis]) * INV_GYR_CMPF_FACTOR;
-    EstG32.A[axis] = EstG.A[axis]; //int32_t cross calculation is a little bit faster than float	
+    EstG32.A[axis] = EstG.A[axis]; //int32_t cross calculation is a little bit faster than float
     #if MAG
       EstM.A[axis] = (EstM.A[axis] * GYR_CMPFM_FACTOR  + imu.magADC[axis]) * INV_GYR_CMPFM_FACTOR;
       EstM32.A[axis] = EstM.A[axis];
